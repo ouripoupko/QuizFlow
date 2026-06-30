@@ -1,0 +1,24 @@
+// Design tokens. Kept deliberately small for the scaffold; extend as the UI grows.
+
+:root {
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-text: #1a1d23;
+  --color-text-muted: #5b6470;
+  --color-border: #d9dee5;
+  --color-primary: #2f6fed;
+  --color-primary-contrast: #ffffff;
+  --color-danger: #d23b3b;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --font-sans: "Segoe UI", "Heebo", "Arial", sans-serif;
+}

@@ -1,0 +1,71 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.thumb {
+  position: relative;
+  inline-size: 120px;
+  block-size: 120px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+
+  &:hover .deleteBtn {
+    opacity: 1;
+  }
+}
+
+.img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.deleteBtn {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+  padding-block: 2px;
+  padding-inline: var(--space-2);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.uploadZone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 120px;
+  block-size: 120px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  cursor: pointer;
+  padding: var(--space-2);
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

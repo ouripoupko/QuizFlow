@@ -1,0 +1,74 @@
+.hint {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.wrapper {
+  overflow-x: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  inline-size: 100%;
+}
+
+.thName {
+  text-align: start;
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border-block-end: 2px solid var(--color-border);
+  font-weight: 600;
+  white-space: nowrap;
+  min-inline-size: 140px;
+}
+
+.thQuiz {
+  text-align: center;
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border-block-end: 2px solid var(--color-border);
+  font-weight: 600;
+  max-inline-size: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tdName {
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cell {
+  text-align: center;
+  padding-block: var(--space-2);
+  padding-inline: var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+  border-radius: 4px;
+}
+
+.cellEmpty {
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+.cellNone {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.cellPartial {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.cellFull {
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 600;
+}

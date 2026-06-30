@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(psql --version)",
+      "Bash(docker --version)",
+      "Bash(supabase --version)",
+      "Bash(docker exec *)",
+      "Bash(docker pull *)",
+      "Bash(docker image *)",
+      "Bash(docker rm *)",
+      "Bash(npm uninstall *)",
+      "Bash(npx supabase *)",
+      "Bash(node -e \"const p=require\\('./node_modules/supabase/package.json'\\); console.log\\(JSON.stringify\\(p.optionalDependencies,null,2\\)\\); console.log\\('version', p.version\\)\")",
+      "Bash(./node_modules/@supabase/cli-windows-x64/bin/supabase.exe --version)",
+      "PowerShell(& \".\\\\node_modules\\\\@supabase\\\\cli-windows-x64\\\\bin\\\\supabase.exe\" --version)",
+      "Bash(tasklist)",
+      "PowerShell(& \"C:\\\\Users\\\\Ouri Poupko\\\\Projects\\\\QuizFlow\\\\node_modules\\\\@supabase\\\\cli-windows-x64\\\\bin\\\\supabase.exe\" --version)",
+      "PowerShell(Stop-Process -Name \"supabase\" -Force -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+.tree {
+  overflow-y: auto;
+}
+
+.root,
+.children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.chevron {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  inline-size: 20px;
+  block-size: 20px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+}
+
+.label {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  text-align: start;
+  flex: 1;
+  color: var(--color-text);
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--color-border);
+  }
+
+  &.selected {
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+.pending {
+  font-size: 0.72rem;
+  color: #92400e;
+  margin-inline-start: var(--space-1);
+  font-weight: 400;
+
+  .selected & {
+    color: rgba(255 255 255 / 0.8);
+  }
+}

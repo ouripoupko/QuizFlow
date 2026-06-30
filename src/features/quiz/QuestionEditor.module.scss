@@ -1,0 +1,183 @@
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.orderBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.moveBtn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  &:not(:disabled):hover {
+    background: var(--color-bg);
+  }
+}
+
+.titleBtn {
+  flex: 1;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  text-align: start;
+  cursor: pointer;
+  padding: var(--space-1) 0;
+
+  &:hover .preview {
+    color: var(--color-primary);
+  }
+}
+
+.num {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.preview {
+  font-size: 0.95rem;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+
+  &:hover {
+    background: #fef2f2;
+  }
+}
+
+.body {
+  padding: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-bg);
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  flex-wrap: wrap;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.modeBtns {
+  display: flex;
+  gap: 2px;
+  margin-inline-start: auto;
+}
+
+.modeBtn {
+  padding: 2px var(--space-2);
+  font-size: 0.78rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.modeBtnActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.textarea {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  background: var(--color-surface);
+  inline-size: 100%;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+  }
+}
+
+.code {
+  font-family: "Consolas", "Courier New", monospace;
+  white-space: pre;
+  direction: ltr;
+  text-align: start;
+}
+
+.answerRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+
+  .textarea {
+    flex: 1;
+  }
+
+  button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}

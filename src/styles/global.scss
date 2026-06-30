@@ -1,0 +1,64 @@
+@use "./tokens";
+
+// Spec §11: RTL is the baseline, not an add-on, and ALL directional styling uses
+// CSS logical properties (margin-inline-*, padding-inline-*, inset-inline-*,
+// text-align: start/end) — never physical left/right. A future LTR locale then
+// works by flipping <html dir> alone, with no CSS changes.
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  // `start` resolves to right in RTL, left in LTR — direction-agnostic.
+  text-align: start;
+}
+
+#root {
+  min-block-size: 100vh;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+}

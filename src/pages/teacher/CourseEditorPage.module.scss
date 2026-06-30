@@ -1,0 +1,124 @@
+.page {
+  max-inline-size: 900px;
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.loading {
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.saveHint {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.titleInput {
+  font-size: 1.5rem;
+  font-weight: 700;
+  border: none;
+  border-block-end: 2px solid var(--color-border);
+  background: transparent;
+  padding-block: var(--space-2);
+  inline-size: 100%;
+
+  &:focus {
+    outline: none;
+    border-block-end-color: var(--color-primary);
+  }
+}
+
+.descInput {
+  font-size: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  background: var(--color-bg);
+  resize: vertical;
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  padding-block-end: var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.quizList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.quizRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.quizTitle {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.quizActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.addSelect {
+  padding-block: var(--space-2);
+  padding-inline: var(--space-2);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  background: var(--color-bg);
+  cursor: pointer;
+  inline-size: fit-content;
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

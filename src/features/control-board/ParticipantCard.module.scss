@@ -1,0 +1,107 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s;
+
+  &.status--waiting {
+    border-color: #f59e0b;
+  }
+
+  &.status--done {
+    opacity: 0.65;
+  }
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding-block: 2px;
+  padding-inline: var(--space-2);
+  border-radius: 999px;
+
+  &.badge--answering {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+
+  &.badge--waiting {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  &.badge--done {
+    background: #d1fae5;
+    color: #065f46;
+  }
+}
+
+.progress {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.answerBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.answerLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.answerText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-block-size: 140px;
+  overflow-y: auto;
+}
+
+.resolveActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.approveBtn {
+  background: #059669;
+  border-color: #059669;
+
+  &:hover:not(:disabled) {
+    background: #047857;
+    border-color: #047857;
+  }
+}
+
+.pushBtn {
+  margin-block-start: var(--space-1);
+  align-self: flex-end;
+  font-size: 0.8rem;
+}

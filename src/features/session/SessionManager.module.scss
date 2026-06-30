@@ -1,0 +1,74 @@
+.panel {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.activeHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.activeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-block: 3px;
+  padding-inline: var(--space-2);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #d1fae5;
+  color: #065f46;
+
+  &::before {
+    content: "";
+    display: inline-block;
+    inline-size: 8px;
+    block-size: 8px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+}
+
+.count {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.linkLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.linkInput {
+  flex: 1;
+  min-inline-size: 0;
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-family: var(--font-mono, monospace);
+  background: var(--color-bg);
+  direction: ltr;
+}
+
+.bottomRow {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
