@@ -30,6 +30,12 @@ function deriveStatus(
   return "answering";
 }
 
+// A "mistake" for the control board (spec §10.1) is a failed attempt the AI
+// (or a teacher override) actually explained — blank reports add no value.
+function isMistake(response: DbResponse): boolean {
+  return response.decision === "fail" && !!response.teacher_report?.trim();
+}
+
 export function ControlBoardPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
 
@@ -110,13 +116,13 @@ export function ControlBoardPage() {
 
       const built = partList.map((p) => {
         const currentQId = qList[p.current_position]?.id ?? null;
+        const ownResponses = respList.filter((r) => r.participant_id === p.id);
         const latestResponse =
-          respList.find(
-            (r) => r.participant_id === p.id && r.question_id === currentQId,
-          ) ?? null;
+          ownResponses.find((r) => r.question_id === currentQId) ?? null;
         return {
           participant: p,
           latestResponse,
+          mistakes: ownResponses.filter(isMistake),
           status: deriveStatus(
             p,
             latestResponse,
@@ -169,6 +175,7 @@ export function ControlBoardPage() {
             const entry: ParticipantDisplay = {
               participant: p,
               latestResponse: null,
+              mistakes: [],
               status: deriveStatus(p, null, qList.length, fm),
             };
             setDisplays((prev) => {
@@ -195,6 +202,16 @@ export function ControlBoardPage() {
               latestResponse,
               status: deriveStatus(p, latestResponse, qList.length, fm),
             });
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            const removedId = (payload.old as { id: string }).id;
+            setDisplays((prev) => {
+              const next = prev.filter((d) => d.participant.id !== removedId);
+              displaysRef.current = next;
+              return next;
+            });
           }
         },
       )
@@ -214,18 +231,26 @@ export function ControlBoardPage() {
             (d) => d.participant.id === resp.participant_id,
           );
           if (!display) return;
+
+          // A fail can arrive after the student's already been pushed past this
+          // question (race with the async AI round-trip) — still record it.
+          const mistakes = isMistake(resp)
+            ? [...display.mistakes, resp]
+            : display.mistakes;
+
           const currentQId =
             qList[display.participant.current_position]?.id ?? null;
-          if (resp.question_id !== currentQId) return;
-          const newStatus = deriveStatus(
-            display.participant,
-            resp,
-            qList.length,
-            fm,
-          );
+          if (resp.question_id !== currentQId) {
+            if (mistakes !== display.mistakes) {
+              updateDisplay(resp.participant_id, { mistakes });
+            }
+            return;
+          }
+
           updateDisplay(resp.participant_id, {
             latestResponse: resp,
-            status: newStatus,
+            mistakes,
+            status: deriveStatus(display.participant, resp, qList.length, fm),
           });
         },
       )
@@ -244,11 +269,21 @@ export function ControlBoardPage() {
             (d) => d.participant.id === resp.participant_id,
           );
           if (!display) return;
+
+          // Teacher-resolved "unsure" responses land here — dedupe by id since
+          // this row may already be in `mistakes` from the initial load.
+          const withoutStale = display.mistakes.filter((m) => m.id !== resp.id);
+          const mistakes = isMistake(resp) ? [...withoutStale, resp] : withoutStale;
+
           const currentQId =
             qList[display.participant.current_position]?.id ?? null;
-          if (resp.question_id !== currentQId) return;
+          if (resp.question_id !== currentQId) {
+            updateDisplay(resp.participant_id, { mistakes });
+            return;
+          }
           updateDisplay(resp.participant_id, {
             latestResponse: resp,
+            mistakes,
             status: deriveStatus(display.participant, resp, qList.length, fm),
           });
         },

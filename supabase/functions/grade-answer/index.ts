@@ -75,6 +75,16 @@ Deno.serve(async (req: Request) => {
       return err(404, "Session not found");
     }
 
+    const { data: quiz, error: quizErr } = await supabase
+      .from("quizzes")
+      .select("flow_mode")
+      .eq("id", session.quiz_id)
+      .single();
+
+    if (quizErr || !quiz) {
+      return err(404, "Quiz not found");
+    }
+
     // ── 3. Get the teacher's decrypted API key from Vault ────────────────────
     const { data: keyRows, error: kErr } = await supabase
       .rpc("get_teacher_api_key_decrypted", { _teacher_id: session.host_id });
@@ -131,6 +141,7 @@ Deno.serve(async (req: Request) => {
         gradingInstructions: question.grading_instructions,
         correctAnswer: question.correct_answer ?? null,
         answerSequence,
+        flowMode: quiz.flow_mode as "infinite_attempts" | "single_attempt",
       },
       api_key,
     );

@@ -1,0 +1,88 @@
+.page {
+  max-inline-size: 800px;
+  margin-inline: auto;
+  padding: var(--space-6);
+}
+
+.title {
+  margin: 0 0 var(--space-6);
+  font-size: 1.5rem;
+}
+
+.empty {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.cardMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding-block: 2px;
+  padding-inline: var(--space-2);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  inline-size: fit-content;
+}
+
+.badgeInProgress {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.badgeCompleted {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badgeEnded {
+  background: #f3f4f6;
+  color: var(--color-text-muted);
+}
+
+.quizTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.progress {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.cardActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}

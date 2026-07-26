@@ -46,11 +46,21 @@ export function JoinPage() {
     setJoining(true);
     setJoinError("");
 
-    // Already joined this session?
+    // Already joined this session? Confirm the row still exists — a teacher
+    // may have removed it (control board "remove student"), in which case we
+    // fall through and rejoin fresh instead of navigating to a dead end.
     const cached = localStorage.getItem(`qf_participant_${session.id}`);
     if (cached) {
-      navigate(`/session/${session.id}`, { replace: true });
-      return;
+      const { data: existing } = await supabase
+        .from("session_participants")
+        .select("id")
+        .eq("id", cached)
+        .maybeSingle();
+      if (existing) {
+        navigate(`/session/${session.id}`, { replace: true });
+        return;
+      }
+      localStorage.removeItem(`qf_participant_${session.id}`);
     }
 
     const { data, error } = await supabase

@@ -12,7 +12,7 @@ export function AdminRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/my-quizzes" replace />;
   }
 
   return <>{children}</>;

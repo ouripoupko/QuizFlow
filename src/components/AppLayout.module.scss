@@ -42,3 +42,9 @@
   border-color: var(--color-primary);
   color: var(--color-primary-contrast);
 }
+
+.signedInAs {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}

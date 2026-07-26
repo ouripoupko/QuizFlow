@@ -133,7 +133,7 @@ export function QuizEditorPage() {
     <main className={styles.page}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className={styles.topBar}>
-        <Link to="/teacher/quizzes" className="btn">{t.quizEditor.backToList}</Link>
+        <Link to="/my-quizzes" className="btn">{t.quizEditor.backToList}</Link>
         <span className={`${styles.badge} ${isPublished ? styles.publishedBadge : styles.draftBadge}`}>
           {isPublished ? t.quizEditor.publishedBadge : t.quizEditor.draftBadge}
         </span>

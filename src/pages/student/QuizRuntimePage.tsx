@@ -1,13 +1,28 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
-import type { AiGradingResult, FlowMode, Question, SessionParticipant } from "@/types/domain";
+import type {
+  AiGradingResult,
+  FlowMode,
+  GradingDecision,
+  Question,
+  Response as DbResponse,
+  SessionParticipant,
+} from "@/types/domain";
 import styles from "./QuizRuntimePage.module.scss";
 
-type PageState = "loading" | "answering" | "grading" | "fail" | "waiting" | "done";
+interface Attempt {
+  attemptNumber: number;
+  answerText: string;
+  decision: GradingDecision | null;
+  studentFeedback: string | null;
+  teacherReport: string | null;
+}
+
+type AttemptsByQuestion = Record<string, Attempt[]>;
 
 // Known grade-answer error reasons (raw English from the Edge Function, see
 // supabase/functions/grade-answer/index.ts) mapped to a localized message.
@@ -40,35 +55,33 @@ export function QuizRuntimePage() {
   const user = useAuthStore((s) => s.user);
 
   // Loaded from DB once
+  const [loading, setLoading] = useState(true);
   const [quizTitle, setQuizTitle] = useState("");
   const [flowMode, setFlowMode] = useState<FlowMode>("infinite_attempts");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
 
-  // Runtime state
+  // `currentPosition` is the server-tracked frontier: it advances the instant
+  // a question is resolved (AI pass, any single_attempt result, or a teacher
+  // action), exactly like before — so a student who leaves and comes back
+  // resumes at the next question, and the control board sees progress live.
+  //
+  // `viewIndex` is purely local: the question actually on screen. It only
+  // ever catches up to `currentPosition` when the student clicks forward —
+  // that's the entire "don't advance automatically" behavior. A fresh load
+  // starts the two equal (no artificial catch-up screen on resume).
   const [currentPosition, setCurrentPosition] = useState(0);
-  const [pageState, setPageState] = useState<PageState>("loading");
+  const [viewIndex, setViewIndex] = useState(0);
+  const [attemptsByQuestion, setAttemptsByQuestion] = useState<AttemptsByQuestion>({});
   const [answerText, setAnswerText] = useState("");
-  const [lastResult, setLastResult] = useState<AiGradingResult | null>(null);
+  const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState<string | null>(null);
-
-  // Refs to avoid stale closure in async handlers
-  const questionsRef = useRef<Question[]>([]);
-  const positionRef = useRef(0);
-  const flowModeRef = useRef<FlowMode>("infinite_attempts");
-  const participantIdRef = useRef<string | null>(null);
-
-  useEffect(() => { questionsRef.current = questions; }, [questions]);
-  useEffect(() => { positionRef.current = currentPosition; }, [currentPosition]);
-  useEffect(() => { flowModeRef.current = flowMode; }, [flowMode]);
-  useEffect(() => { participantIdRef.current = participantId; }, [participantId]);
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sessionId || !user?.id) return;
 
     void (async () => {
-      // Session
       const { data: session } = await supabase
         .from("quiz_sessions")
         .select("quiz_id, status")
@@ -76,11 +89,10 @@ export function QuizRuntimePage() {
         .single();
 
       if (!session || session.status !== "active") {
-        navigate("/", { replace: true });
+        navigate("/my-quizzes", { replace: true });
         return;
       }
 
-      // Quiz
       const { data: quiz } = await supabase
         .from("quizzes")
         .select("flow_mode, title")
@@ -90,18 +102,14 @@ export function QuizRuntimePage() {
       if (!quiz) return;
       setQuizTitle(quiz.title);
       setFlowMode(quiz.flow_mode as FlowMode);
-      flowModeRef.current = quiz.flow_mode as FlowMode;
 
-      // Questions
       const { data: qs } = await supabase
         .from("questions")
         .select("id, quiz_id, position, prompt, correct_answer, grading_instructions, created_at, updated_at")
         .eq("quiz_id", session.quiz_id)
         .order("position");
-
       const qList = (qs ?? []) as Question[];
       setQuestions(qList);
-      questionsRef.current = qList;
 
       // Participant
       let pid: string | null = null;
@@ -132,79 +140,55 @@ export function QuizRuntimePage() {
       }
 
       if (!pid) {
-        navigate("/", { replace: true });
+        navigate("/my-quizzes", { replace: true });
         return;
       }
 
       setParticipantId(pid);
-      participantIdRef.current = pid;
       setCurrentPosition(pos);
-      positionRef.current = pos;
+      setViewIndex(pos);
 
-      await initQuestionState(pid, pos, qList, quiz.flow_mode as FlowMode);
+      // Full answer history, across all questions — lets the student browse
+      // back over completed questions without extra round-trips.
+      const { data: responses } = await supabase
+        .from("responses")
+        .select("question_id, attempt_number, answer_text, decision, student_feedback, teacher_report")
+        .eq("participant_id", pid)
+        .order("attempt_number", { ascending: true });
+
+      const byQuestion: AttemptsByQuestion = {};
+      for (const r of (responses ?? []) as Array<{
+        question_id: string;
+        attempt_number: number;
+        answer_text: string;
+        decision: GradingDecision | null;
+        student_feedback: string | null;
+        teacher_report: string | null;
+      }>) {
+        const list = byQuestion[r.question_id] ?? [];
+        list.push({
+          attemptNumber: r.attempt_number,
+          answerText: r.answer_text,
+          decision: r.decision,
+          studentFeedback: r.student_feedback,
+          teacherReport: r.teacher_report,
+        });
+        byQuestion[r.question_id] = list;
+      }
+      setAttemptsByQuestion(byQuestion);
+      setLoading(false);
     })();
   }, [sessionId, user?.id]);
 
-  // ── Determine state for a given question (used on load + after position change) ─
-  const initQuestionState = async (
-    pid: string,
-    pos: number,
-    qList: Question[],
-    mode: FlowMode,
-  ) => {
-    if (pos >= qList.length) {
-      setPageState("done");
-      return;
-    }
-
-    const q = qList[pos];
-    const { data: lastResp } = await supabase
-      .from("responses")
-      .select("decision, student_feedback, teacher_report")
-      .eq("participant_id", pid)
-      .eq("question_id", q.id)
-      .order("attempt_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!lastResp) {
-      setAnswerText("");
-      setLastResult(null);
-      setPageState("answering");
-      return;
-    }
-
-    // Recovery after refresh
-    if (mode === "single_attempt" || lastResp.decision === "pass") {
-      const newPos = pos + 1;
-      await supabase
-        .from("session_participants")
-        .update({ current_position: newPos })
-        .eq("id", pid);
-      setCurrentPosition(newPos);
-      positionRef.current = newPos;
-      setAnswerText("");
-      setLastResult(null);
-      setPageState(newPos >= qList.length ? "done" : "answering");
-    } else if (lastResp.decision === "fail") {
-      setLastResult({
-        decision: "fail",
-        studentFeedback: lastResp.student_feedback ?? "",
-        teacherReport: lastResp.teacher_report ?? "",
-      });
-      setAnswerText("");
-      setPageState("fail");
-    } else {
-      setPageState("waiting");
-    }
-  };
-
-  // ── Realtime subscription ─────────────────────────────────────────────────
+  // ── Realtime: teacher actions from outside this tab ─────────────────────────
   useEffect(() => {
     if (!participantId) return;
 
     const channel = supabase
       .channel(`participant-${participantId}`)
+      // Position can move from a teacher's "push", or from resolve_response's
+      // own auto-advance on pass — either way we just mirror the DB. This
+      // never touches viewIndex: the student still clicks forward themselves.
       .on(
         "postgres_changes",
         {
@@ -215,18 +199,36 @@ export function QuizRuntimePage() {
         },
         (payload) => {
           const updated = payload.new as SessionParticipant;
-          const newPos = updated.current_position;
-          setCurrentPosition(newPos);
-          positionRef.current = newPos;
-          setAnswerText("");
-          setLastResult(null);
-          setGradeError(null);
-          void initQuestionState(
-            participantIdRef.current!,
-            newPos,
-            questionsRef.current,
-            flowModeRef.current,
-          );
+          setCurrentPosition(updated.current_position);
+        },
+      )
+      // A teacher resolving an "unsure" response (pass or fail) updates it in
+      // place — patch it into the matching attempt by question + attempt#.
+      // Required for "fail": that resolution never touches session_participants,
+      // so without this the student's "waiting" screen would never clear.
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "responses",
+          filter: `participant_id=eq.${participantId}`,
+        },
+        (payload) => {
+          const resp = payload.new as DbResponse;
+          setAttemptsByQuestion((prev) => {
+            const list = prev[resp.question_id] ?? [];
+            const idx = list.findIndex((a) => a.attemptNumber === resp.attempt_number);
+            if (idx === -1) return prev;
+            const nextList = [...list];
+            nextList[idx] = {
+              ...nextList[idx],
+              decision: resp.decision,
+              studentFeedback: resp.student_feedback,
+              teacherReport: resp.teacher_report,
+            };
+            return { ...prev, [resp.question_id]: nextList };
+          });
         },
       )
       .subscribe();
@@ -234,43 +236,18 @@ export function QuizRuntimePage() {
     return () => { void supabase.removeChannel(channel); };
   }, [participantId]);
 
-  // ── Advance to next question ──────────────────────────────────────────────
-  const advance = async () => {
-    const pid = participantIdRef.current;
-    const pos = positionRef.current;
-    const qList = questionsRef.current;
-    if (!pid) return;
-
-    const newPos = pos + 1;
-    await supabase
-      .from("session_participants")
-      .update({ current_position: newPos })
-      .eq("id", pid);
-
-    setCurrentPosition(newPos);
-    positionRef.current = newPos;
-    setAnswerText("");
-    setLastResult(null);
-    setGradeError(null);
-    setPageState(newPos >= qList.length ? "done" : "answering");
-  };
-
-  // ── Submit answer ─────────────────────────────────────────────────────────
+  // ── Submit answer (frontier question only) ──────────────────────────────────
   const submitAnswer = async () => {
-    const pid = participantIdRef.current;
-    const pos = positionRef.current;
-    const qList = questionsRef.current;
-    const mode = flowModeRef.current;
+    if (!participantId || !answerText.trim() || viewIndex !== currentPosition) return;
+    const currentQ = questions[viewIndex];
+    if (!currentQ) return;
 
-    if (!pid || !answerText.trim() || qList.length === 0) return;
-
-    setPageState("grading");
+    setGrading(true);
     setGradeError(null);
 
-    const currentQ = qList[pos];
     const { data, error } = await supabase.functions.invoke("grade-answer", {
       body: {
-        participant_id: pid,
+        participant_id: participantId,
         question_id: currentQ.id,
         answer_text: answerText.trim(),
       },
@@ -278,28 +255,46 @@ export function QuizRuntimePage() {
 
     if (error || !data || (data as { error?: string }).error) {
       setGradeError(await resolveGradeErrorMessage(error, data));
-      setPageState("answering");
+      setGrading(false);
       return;
     }
 
     const result = data as AiGradingResult;
-    setLastResult(result);
+    setAttemptsByQuestion((prev) => {
+      const prior = prev[currentQ.id] ?? [];
+      return {
+        ...prev,
+        [currentQ.id]: [
+          ...prior,
+          {
+            attemptNumber: prior.length + 1,
+            answerText: answerText.trim(),
+            decision: result.decision,
+            studentFeedback: result.studentFeedback,
+            teacherReport: result.teacherReport,
+          },
+        ],
+      };
+    });
+    setAnswerText("");
 
-    if (mode === "single_attempt") {
-      await advance();
-    } else {
-      if (result.decision === "pass") {
-        await advance();
-      } else if (result.decision === "fail") {
-        setPageState("fail");
-      } else {
-        setPageState("waiting");
-      }
+    // single_attempt always moves on; infinite_attempts only on a pass.
+    // viewIndex deliberately stays put — the question now renders as "past"
+    // (done), with forward enabled, until the student clicks it themselves.
+    if (flowMode === "single_attempt" || result.decision === "pass") {
+      const newPos = currentPosition + 1;
+      const { error: advanceErr } = await supabase
+        .from("session_participants")
+        .update({ current_position: newPos })
+        .eq("id", participantId);
+      if (!advanceErr) setCurrentPosition(newPos);
     }
+
+    setGrading(false);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
-  if (pageState === "loading") {
+  if (loading) {
     return (
       <div className={styles.page}>
         <p className={styles.loading}>{t.common.loading}</p>
@@ -307,73 +302,137 @@ export function QuizRuntimePage() {
     );
   }
 
-  if (pageState === "done") {
-    return (
-      <div className={styles.page}>
-        <div className={styles.done}>
-          <p className={styles.doneTitle}>{t.studentRuntime.completed}</p>
-          <p className={styles.doneQuiz}>{quizTitle}</p>
-        </div>
-      </div>
-    );
-  }
+  const atSummary = viewIndex >= questions.length;
+  const isFrontier = viewIndex === currentPosition;
+  const question = atSummary ? null : questions[viewIndex];
+  const attempts = question ? (attemptsByQuestion[question.id] ?? []) : [];
+  const latest = attempts[attempts.length - 1] ?? null;
 
-  const currentQ = questions[currentPosition];
+  const phase: "past" | "answering" | "waitingTeacher" = !isFrontier
+    ? "past"
+    : grading || !latest
+      ? "answering"
+      : flowMode === "infinite_attempts" && latest.decision === "unsure"
+        ? "waitingTeacher"
+        : "answering";
+
+  const canGoBack = viewIndex > 0;
+  const canGoForward = !atSummary && viewIndex < currentPosition;
+
+  const goBack = () => {
+    if (viewIndex <= 0) return;
+    setViewIndex((v) => v - 1);
+    setAnswerText("");
+    setGradeError(null);
+  };
+
+  const goForward = () => {
+    if (!canGoForward) return;
+    setViewIndex((v) => v + 1);
+    setAnswerText("");
+    setGradeError(null);
+  };
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <Link to="/my-quizzes" className="btn">{t.nav.home}</Link>
         <h1 className={styles.quizTitle}>{quizTitle}</h1>
-        <span className={styles.progress}>
-          {t.studentRuntime.questionN} {currentPosition + 1} {t.studentRuntime.of}{" "}
-          {questions.length}
-        </span>
-      </header>
-
-      <div className={styles.questionBox}>
-        <pre className={styles.prompt}>{currentQ?.prompt}</pre>
-      </div>
-
-      {pageState === "waiting" && (
-        <div className={styles.waitingBox}>
-          <span className={styles.waitingSpinner} />
-          <p>{t.studentRuntime.waitingForTeacher}</p>
-        </div>
-      )}
-
-      {pageState === "fail" && lastResult && (
-        <div className={styles.feedbackBox}>
-          <p className={styles.feedbackText}>{lastResult.studentFeedback}</p>
-        </div>
-      )}
-
-      {(pageState === "answering" ||
-        pageState === "fail" ||
-        pageState === "grading") && (
-        <div className={styles.answerSection}>
-          {pageState === "fail" && (
-            <p className={styles.retryHint}>{t.studentRuntime.tryAgain}</p>
-          )}
-          <textarea
-            className={styles.answerInput}
-            placeholder={t.studentRuntime.answerPlaceholder}
-            value={answerText}
-            rows={6}
-            disabled={pageState === "grading"}
-            onChange={(e) => setAnswerText(e.target.value)}
-          />
-          {gradeError && <p className={styles.gradeError}>{gradeError}</p>}
+        <div className={styles.navControls}>
           <button
             type="button"
-            className="btn btn--primary"
-            disabled={pageState === "grading" || !answerText.trim()}
-            onClick={() => void submitAnswer()}
+            className={styles.navBtn}
+            disabled={!canGoBack}
+            aria-label={t.studentRuntime.previousQuestion}
+            onClick={goBack}
           >
-            {pageState === "grading"
-              ? t.studentRuntime.submitting
-              : t.studentRuntime.submitAnswer}
+            →
+          </button>
+          <span className={styles.progress}>
+            {t.studentRuntime.questionN} {Math.min(viewIndex, questions.length - 1) + 1}{" "}
+            {t.studentRuntime.of} {questions.length}
+          </span>
+          <button
+            type="button"
+            className={styles.navBtn}
+            disabled={!canGoForward}
+            aria-label={t.studentRuntime.nextQuestion}
+            onClick={goForward}
+          >
+            ←
           </button>
         </div>
+      </header>
+
+      {atSummary ? (
+        <div className={styles.done}>
+          <p className={styles.doneTitle}>{t.studentRuntime.completed}</p>
+          <p className={styles.doneQuiz}>{quizTitle}</p>
+        </div>
+      ) : (
+        <>
+          <div className={styles.questionBox}>
+            <pre className={styles.prompt}>{question?.prompt}</pre>
+          </div>
+
+          {phase === "past" && (
+            <div className={styles.pastBox}>
+              <span className={styles.pastBadge}>{t.studentQuizzes.statusCompleted}</span>
+              {latest ? (
+                <>
+                  <p className={styles.answerLabel}>{t.studentRuntime.yourAnswerLabel}</p>
+                  <pre className={styles.answerText}>{latest.answerText}</pre>
+                  {latest.studentFeedback && (
+                    <>
+                      <p className={styles.answerLabel}>{t.studentRuntime.feedbackLabel}</p>
+                      <p className={styles.pastFeedback}>{latest.studentFeedback}</p>
+                    </>
+                  )}
+                </>
+              ) : (
+                <p className={styles.pastFeedback}>{t.studentRuntime.noAnswerSubmitted}</p>
+              )}
+            </div>
+          )}
+
+          {phase === "waitingTeacher" && (
+            <div className={styles.waitingBox}>
+              <span className={styles.waitingSpinner} />
+              <p>{t.studentRuntime.waitingForTeacher}</p>
+            </div>
+          )}
+
+          {phase === "answering" && latest?.decision === "fail" && (
+            <div className={styles.feedbackBox}>
+              <p className={styles.feedbackText}>{latest.studentFeedback}</p>
+            </div>
+          )}
+
+          {phase === "answering" && (
+            <div className={styles.answerSection}>
+              {latest?.decision === "fail" && (
+                <p className={styles.retryHint}>{t.studentRuntime.tryAgain}</p>
+              )}
+              <textarea
+                className={styles.answerInput}
+                placeholder={t.studentRuntime.answerPlaceholder}
+                value={answerText}
+                rows={6}
+                disabled={grading}
+                onChange={(e) => setAnswerText(e.target.value)}
+              />
+              {gradeError && <p className={styles.gradeError}>{gradeError}</p>}
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={grading || !answerText.trim()}
+                onClick={() => void submitAnswer()}
+              >
+                {grading ? t.studentRuntime.submitting : t.studentRuntime.submitAnswer}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

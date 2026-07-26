@@ -9,6 +9,8 @@ type ParticipantStatus = "answering" | "waiting" | "done";
 export interface ParticipantDisplay {
   participant: SessionParticipant;
   latestResponse: DbResponse | null;
+  /** Fail-decision responses with a non-empty teacherReport (spec §10.1). */
+  mistakes: DbResponse[];
   status: ParticipantStatus;
 }
 
@@ -18,9 +20,12 @@ interface Props {
 }
 
 export function ParticipantCard({ display, questions }: Props) {
-  const { participant, latestResponse, status } = display;
+  const { participant, latestResponse, mistakes, status } = display;
   const [pushing, setPushing] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  const questionPositions = new Map(questions.map((q) => [q.id, q.position]));
 
   const push = async () => {
     setPushing(true);
@@ -36,6 +41,15 @@ export function ParticipantCard({ display, questions }: Props) {
       _decision: decision,
     });
     setResolving(false);
+  };
+
+  const remove = async () => {
+    if (!window.confirm(t.controlBoard.removeConfirm)) return;
+    setRemoving(true);
+    // The card itself disappears via the control board's realtime DELETE
+    // handler; this just guards the button for the round-trip.
+    await supabase.rpc("delete_participant", { _participant_id: participant.id });
+    setRemoving(false);
   };
 
   const pos = participant.current_position;
@@ -88,16 +102,42 @@ export function ParticipantCard({ display, questions }: Props) {
         </div>
       )}
 
-      {status !== "done" && (
+      {mistakes.length > 0 && (
+        <div className={styles.mistakesBox}>
+          <span className={styles.mistakesLabel}>{t.controlBoard.mistakesLabel}</span>
+          <ul className={styles.mistakesList}>
+            {mistakes.map((m) => (
+              <li key={m.id} className={styles.mistakeItem}>
+                <span className={styles.mistakeQuestion}>
+                  {t.controlBoard.questionN} {(questionPositions.get(m.question_id) ?? 0) + 1}:
+                </span>{" "}
+                <span className={styles.mistakeText}>{m.teacher_report}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className={styles.bottomActions}>
         <button
           type="button"
-          className={`btn ${styles.pushBtn}`}
-          disabled={pushing}
-          onClick={() => void push()}
+          className={styles.removeBtn}
+          disabled={removing}
+          onClick={() => void remove()}
         >
-          {pushing ? t.controlBoard.pushing : t.controlBoard.push}
+          {removing ? t.controlBoard.removing : t.controlBoard.remove}
         </button>
-      )}
+        {status !== "done" && (
+          <button
+            type="button"
+            className={`btn ${styles.pushBtn}`}
+            disabled={pushing}
+            onClick={() => void push()}
+          >
+            {pushing ? t.controlBoard.pushing : t.controlBoard.push}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

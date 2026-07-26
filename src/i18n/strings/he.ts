@@ -99,6 +99,14 @@ export const he = {
     deleteConfirm: "למחוק את השאלון? פעולה זו לא ניתנת לביטול.",
     creating: "יוצר…",
   },
+  studentQuizzes: {
+    noneYet: "עדיין לא הצטרפת לאף שאלון.",
+    progress: "התקדמות",
+    continueBtn: "המשך",
+    statusInProgress: "בתהליך",
+    statusCompleted: "הושלם",
+    statusEnded: "הסתיים",
+  },
   quizEditor: {
     backToList: "← חזרה",
     titlePlaceholder: "כותרת השאלון",
@@ -182,6 +190,11 @@ export const he = {
     tryAgain: "נסה שוב:",
     completed: "סיימת את השאלון! כל הכבוד.",
     noTeacherKey: "לא ניתן לבדוק תשובות כרגע: המורה טרם הגדיר/ה מפתח בינה מלאכותית בהגדרות.",
+    previousQuestion: "לשאלה הקודמת",
+    nextQuestion: "לשאלה הבאה",
+    yourAnswerLabel: "התשובה שלך:",
+    feedbackLabel: "משוב:",
+    noAnswerSubmitted: "לא הוגשה תשובה לשאלה זו.",
   },
   courses: {
     pageTitle: "הקורסים שלי",
@@ -256,5 +269,9 @@ export const he = {
     reject: "✗ דחה",
     resolving: "מעבד…",
     answerLabel: "תשובה:",
+    mistakesLabel: "טעויות:",
+    remove: "הסר תלמיד",
+    removing: "מסיר…",
+    removeConfirm: "להסיר את התלמיד מהשאלון? כל התשובות שלו יימחקו וזה כאילו לא התחיל.",
   },
 } as const;

@@ -36,6 +36,31 @@
   white-space: nowrap;
 }
 
+.navControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.navBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  line-height: 1;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
 .questionBox {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -77,6 +102,51 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.pastBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.pastBadge {
+  display: inline-block;
+  align-self: flex-start;
+  padding-block: 2px;
+  padding-inline: var(--space-2);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.answerLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.answerText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.925rem;
+  line-height: 1.5;
+}
+
+.pastFeedback {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text);
 }
 
 .feedbackBox {

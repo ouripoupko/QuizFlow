@@ -84,6 +84,47 @@
   overflow-y: auto;
 }
 
+.mistakesBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.mistakesLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.mistakesList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-block-size: 140px;
+  overflow-y: auto;
+}
+
+.mistakeItem {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.mistakeQuestion {
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.mistakeText {
+  color: var(--color-text);
+}
+
 .resolveActions {
   display: flex;
   gap: var(--space-2);
@@ -100,8 +141,33 @@
   }
 }
 
-.pushBtn {
+.bottomActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   margin-block-start: var(--space-1);
-  align-self: flex-end;
+}
+
+.pushBtn {
   font-size: 0.8rem;
+}
+
+.removeBtn {
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-decoration: underline;
+
+  &:hover:not(:disabled) {
+    color: var(--color-danger);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 }

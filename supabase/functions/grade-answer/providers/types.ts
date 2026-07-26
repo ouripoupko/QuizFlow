@@ -11,6 +11,12 @@ export interface GradingInput {
   correctAnswer: string | null;
   /** All answers submitted for this question so far, in order, including the current one. */
   answerSequence: string[];
+  /**
+   * "infinite_attempts" quizzes require the student to keep retrying until they
+   * pass, so the adapter must never leak the correct answer to studentFeedback
+   * for these — only to teacherReport, which the student never sees.
+   */
+  flowMode: "infinite_attempts" | "single_attempt";
 }
 
 /**

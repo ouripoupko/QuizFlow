@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
+import { TeacherRoute } from "@/components/TeacherRoute";
 import { AppLayout } from "@/components/AppLayout";
-import { HomePage } from "@/pages/HomePage";
 import { SignInPage } from "@/pages/SignInPage";
-import { QuizzesPage } from "@/pages/teacher/QuizzesPage";
+import { MyQuizzesPage } from "@/pages/MyQuizzesPage";
 import { QuizEditorPage } from "@/pages/teacher/QuizEditorPage";
 import { SettingsPage } from "@/pages/teacher/SettingsPage";
 import { JoinPage } from "@/pages/student/JoinPage";
@@ -37,22 +37,21 @@ export function App() {
     <Routes>
       <Route
         path="/sign-in"
-        element={status === "authenticated" ? <Navigate to="/" replace /> : <SignInPage />}
+        element={status === "authenticated" ? <Navigate to="/my-quizzes" replace /> : <SignInPage />}
       />
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/teacher/quizzes" element={<QuizzesPage />} />
+        <Route path="/my-quizzes" element={<MyQuizzesPage />} />
         <Route path="/teacher/quizzes/:quizId" element={<QuizEditorPage />} />
         <Route path="/teacher/courses" element={<CoursesPage />} />
         <Route path="/teacher/courses/:courseId" element={<CourseEditorPage />} />
-        <Route path="/topics" element={<TopicsPage />} />
+        <Route path="/topics" element={<TeacherRoute><TopicsPage /></TeacherRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<TeacherRoute><SettingsPage /></TeacherRoute>} />
       </Route>
       <Route path="/join/:token" element={<ProtectedRoute><JoinPage /></ProtectedRoute>} />
       <Route path="/session/:sessionId" element={<ProtectedRoute><QuizRuntimePage /></ProtectedRoute>} />
       <Route path="/session/:sessionId/board" element={<ProtectedRoute><ControlBoardPage /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/my-quizzes" replace />} />
     </Routes>
   );
 }
