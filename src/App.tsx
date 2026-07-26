@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AppLayout } from "@/components/AppLayout";
 import { HomePage } from "@/pages/HomePage";
 import { SignInPage } from "@/pages/SignInPage";
 import { QuizzesPage } from "@/pages/teacher/QuizzesPage";
@@ -37,17 +38,19 @@ export function App() {
         path="/sign-in"
         element={status === "authenticated" ? <Navigate to="/" replace /> : <SignInPage />}
       />
-      <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-      <Route path="/teacher/quizzes" element={<ProtectedRoute><QuizzesPage /></ProtectedRoute>} />
-      <Route path="/teacher/quizzes/:quizId" element={<ProtectedRoute><QuizEditorPage /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/teacher/quizzes" element={<QuizzesPage />} />
+        <Route path="/teacher/quizzes/:quizId" element={<QuizEditorPage />} />
+        <Route path="/teacher/courses" element={<CoursesPage />} />
+        <Route path="/teacher/courses/:courseId" element={<CourseEditorPage />} />
+        <Route path="/topics" element={<TopicsPage />} />
+        <Route path="/admin/topics" element={<AdminTopicsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
       <Route path="/join/:token" element={<ProtectedRoute><JoinPage /></ProtectedRoute>} />
       <Route path="/session/:sessionId" element={<ProtectedRoute><QuizRuntimePage /></ProtectedRoute>} />
       <Route path="/session/:sessionId/board" element={<ProtectedRoute><ControlBoardPage /></ProtectedRoute>} />
-      <Route path="/teacher/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
-      <Route path="/teacher/courses/:courseId" element={<ProtectedRoute><CourseEditorPage /></ProtectedRoute>} />
-      <Route path="/topics" element={<ProtectedRoute><TopicsPage /></ProtectedRoute>} />
-      <Route path="/admin/topics" element={<ProtectedRoute><AdminTopicsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

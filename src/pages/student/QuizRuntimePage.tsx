@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
@@ -7,6 +8,31 @@ import type { AiGradingResult, FlowMode, Question, SessionParticipant } from "@/
 import styles from "./QuizRuntimePage.module.scss";
 
 type PageState = "loading" | "answering" | "grading" | "fail" | "waiting" | "done";
+
+// Known grade-answer error reasons (raw English from the Edge Function, see
+// supabase/functions/grade-answer/index.ts) mapped to a localized message.
+// Anything unrecognized falls back to the generic error string.
+const KNOWN_GRADE_ERRORS: Record<string, string> = {
+  "Teacher has no AI provider key configured": t.studentRuntime.noTeacherKey,
+};
+
+// Edge Function failures surface here as a FunctionsHttpError with the JSON
+// error body tucked away in `error.context` — supabase-js does not parse it
+// into `data` for us, so we have to read the response ourselves.
+async function resolveGradeErrorMessage(error: unknown, data: unknown): Promise<string> {
+  let reason: string | undefined;
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (typeof body?.error === "string") reason = body.error;
+    } catch {
+      // Non-JSON response body — fall through to the generic message.
+    }
+  } else {
+    reason = (data as { error?: string } | null)?.error;
+  }
+  return (reason && KNOWN_GRADE_ERRORS[reason]) ?? t.common.error;
+}
 
 export function QuizRuntimePage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -251,7 +277,7 @@ export function QuizRuntimePage() {
     });
 
     if (error || !data || (data as { error?: string }).error) {
-      setGradeError((data as { error?: string })?.error ?? t.common.error);
+      setGradeError(await resolveGradeErrorMessage(error, data));
       setPageState("answering");
       return;
     }

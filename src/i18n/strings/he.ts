@@ -162,6 +162,7 @@ export const he = {
     waitingForTeacher: "ממתין לאישור המורה…",
     tryAgain: "נסה שוב:",
     completed: "סיימת את השאלון! כל הכבוד.",
+    noTeacherKey: "לא ניתן לבדוק תשובות כרגע: המורה טרם הגדיר/ה מפתח בינה מלאכותית בהגדרות.",
   },
   courses: {
     pageTitle: "הקורסים שלי",
