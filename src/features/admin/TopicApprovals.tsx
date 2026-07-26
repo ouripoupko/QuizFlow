@@ -2,13 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import type { TopicNode } from "@/types/domain";
-import styles from "./AdminTopicsPage.module.scss";
+import styles from "./TopicApprovals.module.scss";
 
 interface PendingNode extends TopicNode {
   profiles: { display_name: string | null } | null;
 }
 
-export function AdminTopicsPage() {
+export function TopicApprovals() {
   const qc = useQueryClient();
 
   const { data: pending = [], isLoading } = useQuery<PendingNode[]>({
@@ -64,8 +64,8 @@ export function AdminTopicsPage() {
     (reject.isPending && reject.variables === id);
 
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>{t.adminTopics.pageTitle}</h1>
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>{t.adminTopics.pageTitle}</h2>
 
       {isLoading && <p>{t.common.loading}</p>}
 
@@ -121,6 +121,6 @@ export function AdminTopicsPage() {
           );
         })}
       </ul>
-    </main>
+    </section>
   );
 }

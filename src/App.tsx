@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { HomePage } from "@/pages/HomePage";
 import { SignInPage } from "@/pages/SignInPage";
@@ -11,7 +12,7 @@ import { JoinPage } from "@/pages/student/JoinPage";
 import { QuizRuntimePage } from "@/pages/student/QuizRuntimePage";
 import { ControlBoardPage } from "@/pages/teacher/ControlBoardPage";
 import { TopicsPage } from "@/pages/TopicsPage";
-import { AdminTopicsPage } from "@/pages/admin/AdminTopicsPage";
+import { AdminPage } from "@/pages/admin/AdminPage";
 import { CoursesPage } from "@/pages/teacher/CoursesPage";
 import { CourseEditorPage } from "@/pages/teacher/CourseEditorPage";
 import { useAuthStore } from "@/store/authStore";
@@ -45,7 +46,7 @@ export function App() {
         <Route path="/teacher/courses" element={<CoursesPage />} />
         <Route path="/teacher/courses/:courseId" element={<CourseEditorPage />} />
         <Route path="/topics" element={<TopicsPage />} />
-        <Route path="/admin/topics" element={<AdminTopicsPage />} />
+        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="/join/:token" element={<ProtectedRoute><JoinPage /></ProtectedRoute>} />

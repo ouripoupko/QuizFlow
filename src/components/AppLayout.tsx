@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { signOut } from "@/auth/auth";
+import { useIsAdmin } from "@/auth/useIsAdmin";
 import { t } from "@/i18n";
 import styles from "./AppLayout.module.scss";
 
@@ -7,6 +8,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   isActive ? `${styles.link} ${styles.linkActive}` : styles.link;
 
 export function AppLayout() {
+  const { isAdmin } = useIsAdmin();
+
   return (
     <>
       <header className={styles.header}>
@@ -17,7 +20,9 @@ export function AppLayout() {
           <NavLink to="/teacher/quizzes" className={navLinkClass}>{t.nav.myQuizzes}</NavLink>
           <NavLink to="/teacher/courses" className={navLinkClass}>{t.nav.myCourses}</NavLink>
           <NavLink to="/topics" className={navLinkClass}>{t.nav.topics}</NavLink>
-          <NavLink to="/admin/topics" className={navLinkClass}>{t.nav.adminTopics}</NavLink>
+          {isAdmin && (
+            <NavLink to="/admin" className={navLinkClass}>{t.nav.admin}</NavLink>
+          )}
           <NavLink to="/settings" className={navLinkClass}>{t.nav.settings}</NavLink>
           <button type="button" className="btn" onClick={() => void signOut()}>
             {t.nav.signOut}
