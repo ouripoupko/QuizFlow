@@ -147,6 +147,11 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 1px;
   }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 .code {

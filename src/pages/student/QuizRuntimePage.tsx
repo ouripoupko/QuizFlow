@@ -202,6 +202,22 @@ export function QuizRuntimePage() {
           setCurrentPosition(updated.current_position);
         },
       )
+      // The teacher removed this student (control board "remove"), or the
+      // whole quiz was deleted out from under an active session (cascades
+      // down to this row too) — either way, this participation is gone.
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "session_participants",
+          filter: `id=eq.${participantId}`,
+        },
+        () => {
+          if (sessionId) localStorage.removeItem(`qf_participant_${sessionId}`);
+          navigate("/my-quizzes", { replace: true });
+        },
+      )
       // A teacher resolving an "unsure" response (pass or fail) updates it in
       // place — patch it into the matching attempt by question + attempt#.
       // Required for "fail": that resolution never touches session_participants,
@@ -346,7 +362,11 @@ export function QuizRuntimePage() {
             aria-label={t.studentRuntime.previousQuestion}
             onClick={goBack}
           >
-            →
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
           </button>
           <span className={styles.progress}>
             {t.studentRuntime.questionN} {Math.min(viewIndex, questions.length - 1) + 1}{" "}
@@ -359,7 +379,11 @@ export function QuizRuntimePage() {
             aria-label={t.studentRuntime.nextQuestion}
             onClick={goForward}
           >
-            ←
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
           </button>
         </div>
       </header>

@@ -12,6 +12,11 @@
   background: var(--color-surface);
   font-family: inherit;
   font-size: 0.9rem;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 .textarea {
@@ -26,6 +31,11 @@
   &:focus {
     outline: 2px solid var(--color-primary);
     outline-offset: 1px;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 }
 

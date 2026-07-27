@@ -36,6 +36,13 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Tracked outside the try block so the catch handler can still report what
+  // was attempted (via response headers) even if the failure happened after
+  // we resolved it — e.g. Anthropic itself rejecting the request.
+  let model: string | undefined;
+  let thinkingFamily: "none" | "adaptive" | "legacy" | undefined;
+  let effort: string | null | undefined;
+
   try {
     // ── 1. Parse & validate ───────────────────────────────────────────────────
     const body = await req.json();
@@ -93,10 +100,22 @@ Deno.serve(async (req: Request) => {
       return err(400, "Teacher has no AI provider key configured");
     }
 
-    const { provider, api_key } = keyRows[0] as {
+    const {
+      provider,
+      api_key,
+      model: teacherModel,
+      thinking_family,
+      effort: teacherEffort,
+    } = keyRows[0] as {
       provider: string;
       api_key: string;
+      model: string;
+      thinking_family: "none" | "adaptive" | "legacy";
+      effort: string | null;
     };
+    model = teacherModel;
+    thinkingFamily = thinking_family;
+    effort = teacherEffort;
 
     // ── 4. Rate limiting ─────────────────────────────────────────────────────
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
@@ -143,7 +162,12 @@ Deno.serve(async (req: Request) => {
         answerSequence,
         flowMode: quiz.flow_mode as "infinite_attempts" | "single_attempt",
       },
-      api_key,
+      {
+        apiKey: api_key,
+        model,
+        thinkingFamily: thinking_family,
+        effort: teacherEffort,
+      },
     );
 
     const result = AiGradingResultSchema.parse(raw);
@@ -165,19 +189,46 @@ Deno.serve(async (req: Request) => {
       graded_at: new Date().toISOString(),
     });
 
+    // Exposed as response headers (not mixed into the JSON body, which stays
+    // exactly AiGradingResult) so the actual AI config used is easy to
+    // confirm from the browser's Network tab — see this request's Headers.
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        ...debugHeaders(model, thinkingFamily, effort),
+      },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unexpected error";
-    return err(500, message);
+    return err(500, message, model, thinkingFamily, effort);
   }
 });
 
-function err(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+function debugHeaders(
+  model?: string,
+  thinkingFamily?: "none" | "adaptive" | "legacy",
+  effort?: string | null,
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (model) headers["x-model-used"] = model;
+  if (thinkingFamily) headers["x-thinking-used"] = thinkingFamily;
+  if (effort) headers["x-effort-used"] = effort;
+  return headers;
+}
+
+function err(
+  status: number,
+  message: string,
+  model?: string,
+  thinkingFamily?: "none" | "adaptive" | "legacy",
+  effort?: string | null,
+): Response {
+  const headers: Record<string, string> = {
+    ...corsHeaders,
+    "Content-Type": "application/json",
+    ...debugHeaders(model, thinkingFamily, effort),
+  };
+  return new Response(JSON.stringify({ error: message }), { status, headers });
 }

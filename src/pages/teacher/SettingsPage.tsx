@@ -1,5 +1,6 @@
 import { AdminsList } from "@/features/settings/AdminsList";
 import { ApiKeyForm } from "@/features/teacher/ApiKeyForm";
+import { ModelSelector } from "@/features/teacher/ModelSelector";
 import { t } from "@/i18n";
 import styles from "./SettingsPage.module.scss";
 
@@ -16,6 +17,7 @@ export function SettingsPage() {
       <section className={styles.pageSection}>
         <h2 className={styles.pageSectionTitle}>{t.teacherSettings.pageTitle}</h2>
         <ApiKeyForm />
+        <ModelSelector />
       </section>
     </main>
   );

@@ -9,11 +9,12 @@ import styles from "./GradingInstructionEditor.module.scss";
 interface Props {
   value: string;
   onChange: (v: string) => void;
+  locked?: boolean;
 }
 
 const CUSTOM_ID = "__custom__";
 
-export function GradingInstructionEditor({ value, onChange }: Props) {
+export function GradingInstructionEditor({ value, onChange, locked = false }: Props) {
   const qc = useQueryClient();
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -63,6 +64,7 @@ export function GradingInstructionEditor({ value, onChange }: Props) {
       <select
         className={styles.select}
         value={selectedId}
+        disabled={locked}
         onChange={handleSelect}
       >
         <option value={CUSTOM_ID}>{t.gradingTemplates.selectPlaceholder}</option>
@@ -84,13 +86,14 @@ export function GradingInstructionEditor({ value, onChange }: Props) {
         className={styles.textarea}
         value={value}
         rows={4}
+        disabled={locked}
         onChange={(e) => {
           setSelectedId(CUSTOM_ID);
           onChange(e.target.value);
         }}
       />
 
-      {!showSaveForm ? (
+      {locked ? null : !showSaveForm ? (
         <button
           type="button"
           className={styles.saveLink}

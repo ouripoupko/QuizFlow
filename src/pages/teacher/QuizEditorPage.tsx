@@ -77,9 +77,32 @@ export function QuizEditorPage() {
   }
 
   // ── Publish / unpublish ──────────────────────────────────────────────────
+  // Editing and running are mutually exclusive: a published quiz is locked
+  // for edits (see `isPublished` below), so unpublishing is the only way back
+  // to an editable draft — and it must not silently cut off a live session.
   const togglePublish = useMutation({
     mutationFn: async () => {
       const nextStatus = quiz?.status === "published" ? "draft" : "published";
+
+      if (nextStatus === "draft") {
+        const { data: active } = await supabase
+          .from("quiz_sessions")
+          .select("id")
+          .eq("quiz_id", quizId!)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (active) {
+          if (!window.confirm(t.quizEditor.unpublishActiveSessionConfirm)) return;
+          const { error: endErr } = await supabase
+            .from("quiz_sessions")
+            .update({ status: "ended", ended_at: new Date().toISOString() })
+            .eq("id", active.id);
+          if (endErr) throw endErr;
+          void qc.invalidateQueries({ queryKey: ["active-session", quizId] });
+        }
+      }
+
       const patch: Record<string, unknown> = { status: nextStatus };
       if (nextStatus === "published" && !quiz?.topic_node_id) {
         patch.topic_node_id = UNSORTED_TOPIC_ID;
@@ -150,6 +173,8 @@ export function QuizEditorPage() {
         </button>
       </div>
 
+      {isPublished && <p className={styles.lockedHint}>{t.quizEditor.lockedHint}</p>}
+
       {/* ── Quiz metadata ───────────────────────────────────────────────── */}
       <div className={styles.meta}>
         <input
@@ -157,6 +182,7 @@ export function QuizEditorPage() {
           className={styles.titleInput}
           placeholder={t.quizEditor.titlePlaceholder}
           value={title}
+          disabled={isPublished}
           onChange={(e) => {
             setTitle(e.target.value);
             scheduleMetaSave({ title: e.target.value });
@@ -167,6 +193,7 @@ export function QuizEditorPage() {
           placeholder={t.quizEditor.descriptionPlaceholder}
           value={description}
           rows={2}
+          disabled={isPublished}
           onChange={(e) => {
             setDescription(e.target.value);
             scheduleMetaSave({ description: e.target.value });
@@ -177,6 +204,7 @@ export function QuizEditorPage() {
           <select
             className={styles.flowSelect}
             value={flowMode}
+            disabled={isPublished}
             onChange={(e) => {
               const v = e.target.value as FlowMode;
               setFlowMode(v);
@@ -202,20 +230,23 @@ export function QuizEditorPage() {
             position={idx}
             total={questions.length}
             onMove={(dir) => moveQuestion.mutate({ idx, direction: dir })}
+            locked={isPublished}
           />
         ))}
-        <button
-          type="button"
-          className="btn"
-          disabled={addQuestion.isPending}
-          onClick={() => addQuestion.mutate()}
-        >
-          {t.quizEditor.addQuestion}
-        </button>
+        {!isPublished && (
+          <button
+            type="button"
+            className="btn"
+            disabled={addQuestion.isPending}
+            onClick={() => addQuestion.mutate()}
+          >
+            {t.quizEditor.addQuestion}
+          </button>
+        )}
       </section>
 
       {/* ── Session management ───────────────────────────────────────────── */}
-      <SessionManager quizId={quizId!} />
+      <SessionManager quizId={quizId!} quizPublished={isPublished} />
     </main>
   );
 }

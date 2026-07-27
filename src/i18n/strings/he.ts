@@ -86,6 +86,23 @@ export const he = {
       openai: "OpenAI (GPT)",
       gemini: "Google (Gemini)",
     },
+    modelSection: "מודל AI",
+    modelHintNoKey: "שמרו מפתח API כדי לבחור מודל.",
+    modelLabel: "מודל",
+    loadingModels: "טוען רשימת מודלים…",
+    modelsLoadError: "לא ניתן לטעון את רשימת המודלים כרגע.",
+    saveModel: "שמור",
+    modelSaveSuccess: "ההגדרות נשמרו בהצלחה.",
+    modelSaveError: "שמירת ההגדרות נכשלה.",
+    effortLabel: "רמת מאמץ (effort)",
+    effortNone: "ברירת מחדל",
+    effortLevels: {
+      low: "נמוכה",
+      medium: "בינונית",
+      high: "גבוהה",
+      xhigh: "גבוהה מאוד",
+      max: "מקסימלית",
+    },
   },
   quizList: {
     pageTitle: "השאלונים שלי",
@@ -122,6 +139,9 @@ export const he = {
     draftBadge: "טיוטה",
     hasResponsesWarning:
       "לחלק מהתלמידים יש כבר תשובות. שינוי מהותי? שקול לשכפל את השאלון.",
+    lockedHint: "השאלון פורסם ולכן נעול לעריכה. בטלו פרסום כדי לערוך אותו.",
+    unpublishActiveSessionConfirm:
+      "יש שיעור פעיל לשאלון זה. לסיים את השיעור ולבטל את הפרסום?",
     addQuestion: "+ הוסף שאלה",
     noQuestions: "אין שאלות עדיין.",
     questionN: "שאלה",
@@ -164,6 +184,7 @@ export const he = {
   },
   session: {
     startSession: "התחל שיעור",
+    startDisabledHint: "יש לפרסם את השאלון לפני התחלת שיעור.",
     starting: "מתחיל…",
     endSession: "סיים שיעור",
     sessionActive: "שיעור פעיל",

@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
@@ -28,6 +29,32 @@ interface ParticipantRow {
 
 export function StudentQuizzesPage() {
   const userId = useAuthStore((s) => s.user?.id);
+  const queryClient = useQueryClient();
+
+  // The underlying data is a join across three tables (with a derived
+  // question count), so on any change we just refetch rather than patch
+  // local state — a teacher removing this student, deleting a quiz (which
+  // cascades down to this row), or the student joining a new session should
+  // all be reflected without a manual reload.
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`student-quizzes-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "session_participants",
+          filter: `student_id=eq.${userId}`,
+        },
+        () => void queryClient.invalidateQueries({ queryKey: ["student-quizzes", userId] }),
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [userId, queryClient]);
 
   const { data: quizzes, isLoading, isError } = useQuery<JoinedQuiz[]>({
     queryKey: ["student-quizzes", userId],

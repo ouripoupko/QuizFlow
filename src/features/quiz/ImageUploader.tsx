@@ -8,6 +8,7 @@ import styles from "./ImageUploader.module.scss";
 interface Props {
   quizId: string;
   questionId: string;
+  locked?: boolean;
 }
 
 interface SignedImage {
@@ -28,7 +29,7 @@ async function getSignedUrls(images: QuestionImage[]): Promise<SignedImage[]> {
   );
 }
 
-export function ImageUploader({ quizId, questionId }: Props) {
+export function ImageUploader({ quizId, questionId, locked = false }: Props) {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -51,7 +52,7 @@ export function ImageUploader({ quizId, questionId }: Props) {
 
   const uploadFile = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith("image/")) return;
+      if (locked || !file.type.startsWith("image/")) return;
       setUploading(true);
       try {
         const ext = file.name.split(".").pop() ?? "jpg";
@@ -79,7 +80,7 @@ export function ImageUploader({ quizId, questionId }: Props) {
         setUploading(false);
       }
     },
-    [quizId, questionId, qc, imagesKey],
+    [quizId, questionId, qc, imagesKey, locked],
   );
 
   // Paste handler — captures Ctrl+V anywhere while the component is mounted.
@@ -109,37 +110,41 @@ export function ImageUploader({ quizId, questionId }: Props) {
       {images.map((img) => (
         <div key={img.id} className={styles.thumb}>
           <img src={img.signedUrl} alt="" className={styles.img} />
-          <button
-            type="button"
-            className={styles.deleteBtn}
-            onClick={() => deleteImage.mutate(img)}
-          >
-            {t.imageUploader.deleteImage}
-          </button>
+          {!locked && (
+            <button
+              type="button"
+              className={styles.deleteBtn}
+              onClick={() => deleteImage.mutate(img)}
+            >
+              {t.imageUploader.deleteImage}
+            </button>
+          )}
         </div>
       ))}
 
-      <label className={styles.uploadZone}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className={styles.hiddenInput}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void uploadFile(file);
-            e.target.value = "";
-          }}
-        />
-        {uploading ? (
-          <span>{t.imageUploader.uploading}</span>
-        ) : (
-          <span>
-            {t.imageUploader.prompt}{" "}
-            <span className={styles.link}>{t.imageUploader.chooseFile}</span>
-          </span>
-        )}
-      </label>
+      {!locked && (
+        <label className={styles.uploadZone}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className={styles.hiddenInput}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadFile(file);
+              e.target.value = "";
+            }}
+          />
+          {uploading ? (
+            <span>{t.imageUploader.uploading}</span>
+          ) : (
+            <span>
+              {t.imageUploader.prompt}{" "}
+              <span className={styles.link}>{t.imageUploader.chooseFile}</span>
+            </span>
+          )}
+        </label>
+      )}
     </div>
   );
 }

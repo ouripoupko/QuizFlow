@@ -13,9 +13,17 @@ interface Props {
   position: number;
   total: number;
   onMove: (direction: "up" | "down") => void;
+  locked?: boolean;
 }
 
-export function QuestionEditor({ question, quizId, position, total, onMove }: Props) {
+export function QuestionEditor({
+  question,
+  quizId,
+  position,
+  total,
+  onMove,
+  locked = false,
+}: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [codeMode, setCodeMode] = useState(false);
@@ -81,7 +89,7 @@ export function QuestionEditor({ question, quizId, position, total, onMove }: Pr
           <button
             type="button"
             className={styles.moveBtn}
-            disabled={position === 0}
+            disabled={locked || position === 0}
             onClick={() => onMove("up")}
             title={t.questionEditor.moveUp}
           >
@@ -90,7 +98,7 @@ export function QuestionEditor({ question, quizId, position, total, onMove }: Pr
           <button
             type="button"
             className={styles.moveBtn}
-            disabled={position === total - 1}
+            disabled={locked || position === total - 1}
             onClick={() => onMove("down")}
             title={t.questionEditor.moveDown}
           >
@@ -103,15 +111,17 @@ export function QuestionEditor({ question, quizId, position, total, onMove }: Pr
           <span className={styles.preview}>{promptPreview}</span>
         </button>
 
-        <button
-          type="button"
-          className={styles.deleteBtn}
-          onClick={() => {
-            if (window.confirm(t.questionEditor.deleteQuestionConfirm)) remove.mutate();
-          }}
-        >
-          {t.questionEditor.deleteQuestion}
-        </button>
+        {!locked && (
+          <button
+            type="button"
+            className={styles.deleteBtn}
+            onClick={() => {
+              if (window.confirm(t.questionEditor.deleteQuestionConfirm)) remove.mutate();
+            }}
+          >
+            {t.questionEditor.deleteQuestion}
+          </button>
+        )}
       </div>
 
       {/* ── Expanded editor ────────────────────────────────────────────── */}
@@ -142,12 +152,13 @@ export function QuestionEditor({ question, quizId, position, total, onMove }: Pr
             value={prompt}
             rows={4}
             placeholder={t.questionEditor.promptPlaceholder}
+            disabled={locked}
             onChange={(e) => setPrompt(e.target.value)}
           />
 
           {/* Images */}
           <label className={styles.fieldLabel}>{t.questionEditor.imagesLabel}</label>
-          <ImageUploader quizId={quizId} questionId={question.id} />
+          <ImageUploader quizId={quizId} questionId={question.id} locked={locked} />
 
           {/* Correct answer */}
           <label className={styles.fieldLabel}>
@@ -160,33 +171,38 @@ export function QuestionEditor({ question, quizId, position, total, onMove }: Pr
               value={correctAnswer}
               rows={3}
               placeholder={t.questionEditor.correctAnswerPlaceholder}
+              disabled={locked}
               onChange={(e) => setCorrectAnswer(e.target.value)}
             />
-            <button
-              type="button"
-              className="btn"
-              disabled={!prompt.trim() || askingAi}
-              onClick={() => void askAi()}
-            >
-              {askingAi ? t.questionEditor.askingAi : t.questionEditor.askAiButton}
-            </button>
+            {!locked && (
+              <button
+                type="button"
+                className="btn"
+                disabled={!prompt.trim() || askingAi}
+                onClick={() => void askAi()}
+              >
+                {askingAi ? t.questionEditor.askingAi : t.questionEditor.askAiButton}
+              </button>
+            )}
           </div>
           {aiError && <p className={styles.error}>{aiError}</p>}
 
           {/* Grading instructions */}
           <label className={styles.fieldLabel}>{t.questionEditor.gradingLabel}</label>
-          <GradingInstructionEditor value={grading} onChange={setGrading} />
+          <GradingInstructionEditor value={grading} onChange={setGrading} locked={locked} />
 
           {/* Actions */}
           <div className={styles.actions}>
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={save.isPending || !prompt.trim()}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending ? t.quizEditor.saving : t.questionEditor.saveQuestion}
-            </button>
+            {!locked && (
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={save.isPending || !prompt.trim()}
+                onClick={() => save.mutate()}
+              >
+                {save.isPending ? t.quizEditor.saving : t.questionEditor.saveQuestion}
+              </button>
+            )}
             <button type="button" className="btn" onClick={() => setOpen(false)}>
               {t.common.cancel}
             </button>

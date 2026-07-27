@@ -9,9 +9,10 @@ import styles from "./SessionManager.module.scss";
 
 interface Props {
   quizId: string;
+  quizPublished: boolean;
 }
 
-export function SessionManager({ quizId }: Props) {
+export function SessionManager({ quizId, quizPublished }: Props) {
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
   const [copied, setCopied] = useState(false);
@@ -84,11 +85,13 @@ export function SessionManager({ quizId }: Props) {
         <button
           type="button"
           className="btn btn--primary"
-          disabled={startSession.isPending}
+          disabled={!quizPublished || startSession.isPending}
+          title={quizPublished ? undefined : t.session.startDisabledHint}
           onClick={() => startSession.mutate()}
         >
           {startSession.isPending ? t.session.starting : t.session.startSession}
         </button>
+        {!quizPublished && <p className={styles.hint}>{t.session.startDisabledHint}</p>}
       </div>
     );
   }

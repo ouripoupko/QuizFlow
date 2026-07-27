@@ -46,18 +46,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: 36px;
-  block-size: 36px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  inline-size: 44px;
+  block-size: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-primary);
+  border-radius: 50%;
   background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 1.1rem;
-  line-height: 1;
+  color: var(--color-primary);
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-primary-contrast);
+  }
 
   &:disabled {
-    opacity: 0.35;
+    opacity: 0.3;
     cursor: default;
+    border-color: var(--color-border);
+    color: var(--color-text-muted);
   }
 }
 
