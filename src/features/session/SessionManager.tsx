@@ -68,7 +68,7 @@ export function SessionManager({ quizId, quizPublished }: Props) {
   });
 
   const joinUrl = session
-    ? `${window.location.origin}/join/${session.join_token}`
+    ? `${window.location.origin}${import.meta.env.BASE_URL}join/${session.join_token}`
     : "";
 
   const copyLink = async () => {
