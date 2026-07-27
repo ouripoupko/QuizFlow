@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import type { QuestionImage } from "@/types/domain";
 import styles from "./ImageUploader.module.scss";
+
+const ZOOM_GAP_PX = 8;
+
+interface ZoomPreview {
+  url: string;
+  left: number;
+  // Anchored above the thumbnail by default; flipped below it when there
+  // isn't enough room above (thumbnail sits in the top half of the screen).
+  top: number;
+  placement: "above" | "below";
+}
 
 interface Props {
   quizId: string;
@@ -33,6 +45,7 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [zoom, setZoom] = useState<ZoomPreview | null>(null);
 
   const imagesKey = ["question-images", questionId];
 
@@ -105,11 +118,32 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
     onSuccess: () => qc.invalidateQueries({ queryKey: imagesKey }),
   });
 
+  // Rendered via a portal to <body> (position: fixed) so it isn't clipped by
+  // the question card's `overflow: hidden`, and can use the full viewport
+  // rather than being confined to the card.
+  function showZoom(url: string, thumb: HTMLElement) {
+    const rect = thumb.getBoundingClientRect();
+    const inTopHalf = rect.top < window.innerHeight / 2;
+    setZoom({
+      url,
+      left: rect.left + rect.width / 2,
+      top: inTopHalf ? rect.bottom + ZOOM_GAP_PX : rect.top - ZOOM_GAP_PX,
+      placement: inTopHalf ? "below" : "above",
+    });
+  }
+
   return (
     <div className={styles.root}>
       {images.map((img) => (
-        <div key={img.id} className={styles.thumb}>
-          <img src={img.signedUrl} alt="" className={styles.img} />
+        <div
+          key={img.id}
+          className={styles.thumb}
+          onMouseEnter={(e) => showZoom(img.signedUrl, e.currentTarget)}
+          onMouseLeave={() => setZoom(null)}
+        >
+          <div className={styles.imgWrap}>
+            <img src={img.signedUrl} alt="" className={styles.img} />
+          </div>
           {!locked && (
             <button
               type="button"
@@ -144,6 +178,20 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
             </span>
           )}
         </label>
+      )}
+
+      {zoom && createPortal(
+        <img
+          src={zoom.url}
+          alt=""
+          className={styles.zoomPreview}
+          style={{
+            left: zoom.left,
+            top: zoom.top,
+            transform: `translate(-50%, ${zoom.placement === "above" ? "-100%" : "0"})`,
+          }}
+        />,
+        document.body,
       )}
     </div>
   );
