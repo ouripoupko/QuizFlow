@@ -13,10 +13,32 @@ import { corsHeaders } from "../_shared/cors.ts";
 const RequestSchema = z.object({
   question_prompt: z.string().min(1).max(10_000),
   grading_instructions: z.string().max(2_000),
+  question_id: z.string().uuid().optional(),
 });
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-4-8";
+
+// Chunked to avoid blowing the call stack on String.fromCharCode(...bytes)
+// for larger images (bucket allows up to 10 MB).
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function mediaTypeFor(path: string, blobType: string): string {
+  if (blobType.startsWith("image/")) return blobType;
+  const ext = path.split(".").pop()?.toLowerCase();
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "gif") return "image/gif";
+  if (ext === "webp") return "image/webp";
+  return "image/jpeg";
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -57,6 +79,43 @@ Deno.serve(async (req: Request) => {
       return err(400, `Provider "${provider}" is not yet supported for the authoring assistant.`);
     }
 
+    // Attach the question's own images, if any — fetched server-side (not
+    // via signed URL) so the teacher's key never has to leave the server and
+    // we don't depend on Anthropic being able to reach a Supabase URL.
+    const imageBlocks: Array<{ type: "image"; source: { type: "base64"; media_type: string; data: string } }> = [];
+    if (input.question_id) {
+      const { data: question } = await supabase
+        .from("questions")
+        .select("id, quizzes!inner(creator_id)")
+        .eq("id", input.question_id)
+        .single();
+      const owned = (question as unknown as { quizzes: { creator_id: string } } | null)
+        ?.quizzes.creator_id === user.id;
+      if (!owned) return err(403, "You do not own this question");
+
+      const { data: images } = await supabase
+        .from("question_images")
+        .select("storage_path")
+        .eq("question_id", input.question_id)
+        .order("position", { ascending: true });
+
+      for (const img of (images ?? []) as { storage_path: string }[]) {
+        const { data: blob } = await supabase.storage
+          .from("question-images")
+          .download(img.storage_path);
+        if (!blob) continue;
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        imageBlocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mediaTypeFor(img.storage_path, blob.type),
+            data: toBase64(bytes),
+          },
+        });
+      }
+    }
+
     const prompt = [
       `שאלה:\n${input.question_prompt}`,
       input.grading_instructions
@@ -77,7 +136,12 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 512,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{
+          role: "user",
+          content: imageBlocks.length > 0
+            ? [...imageBlocks, { type: "text", text: prompt }]
+            : prompt,
+        }],
       }),
     });
 

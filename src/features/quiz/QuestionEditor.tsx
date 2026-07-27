@@ -67,7 +67,7 @@ export function QuestionEditor({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("ask-ai", {
-        body: { question_prompt: prompt, grading_instructions: grading },
+        body: { question_prompt: prompt, grading_instructions: grading, question_id: question.id },
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
       });
       if (res.error) throw new Error(res.error.message);
