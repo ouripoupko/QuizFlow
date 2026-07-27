@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>QuizFlow</title>
+    <!--
+      GitHub Pages serves this file for any path it doesn't recognize as a
+      static asset — which is every client-side route, since BrowserRouter
+      URLs have no matching file on disk. It re-encodes the unmatched path
+      into a query string and redirects to the app's real entry point,
+      where the inline script in index.html decodes it back before React
+      Router mounts. This keeps clean, shareable URLs (e.g. /join/:token)
+      instead of falling back to a HashRouter. Technique: spa-github-pages
+      (https://github.com/rafgraph/spa-github-pages).
+    -->
+    <script>
+      var pathSegmentsToKeep = 1; // keep "/QuizFlow" from the path
+      var l = window.location;
+      l.replace(
+        l.protocol + "//" + l.hostname + (l.port ? ":" + l.port : "") +
+        l.pathname.split("/").slice(0, 1 + pathSegmentsToKeep).join("/") + "/?/" +
+        l.pathname.slice(1).split("/").slice(pathSegmentsToKeep).join("/").replace(/&/g, "~and~") +
+        (l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

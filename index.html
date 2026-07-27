@@ -5,6 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QuizFlow</title>
+    <!-- Decodes the redirect from 404.html back into a clean URL before
+         React Router mounts. See public/404.html for the encoding side. -->
+    <script>
+      (function (l) {
+        if (l.search[1] === "/") {
+          var decoded = l.search.slice(1).split("&").map(function (s) {
+            return s.replace(/~and~/g, "&");
+          });
+          window.history.replaceState(
+            null,
+            "",
+            l.pathname.slice(0, -1) + decoded.shift() + (decoded.length ? "?" + decoded.join("&") : "") + l.hash
+          );
+        }
+      })(window.location);
+    </script>
   </head>
   <body>
     <div id="root"></div>

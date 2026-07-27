@@ -29,7 +29,10 @@ export async function signInWithProvider(provider: Provider): Promise<void> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: window.location.origin,
+      // BASE_URL carries the "/QuizFlow/" prefix on GitHub Pages (see
+      // vite.config.ts) — without it the post-login redirect would land on
+      // the bare domain root, which has no app mounted there.
+      redirectTo: window.location.origin + import.meta.env.BASE_URL,
     },
   });
   if (error) throw error;
