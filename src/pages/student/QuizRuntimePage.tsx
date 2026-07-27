@@ -9,6 +9,7 @@ import type {
   FlowMode,
   GradingDecision,
   Question,
+  QuestionImage,
   Response as DbResponse,
   SessionParticipant,
 } from "@/types/domain";
@@ -23,6 +24,35 @@ interface Attempt {
 }
 
 type AttemptsByQuestion = Record<string, Attempt[]>;
+type ImagesByQuestion = Record<string, string[]>;
+
+// Signed URLs (bucket is private — see supabase/migrations/..._storage.sql)
+// fetched once per quiz load; batched into a single storage call rather than
+// one per image.
+async function loadImagesByQuestion(questionIds: string[]): Promise<ImagesByQuestion> {
+  if (questionIds.length === 0) return {};
+
+  const { data: rows } = await supabase
+    .from("question_images")
+    .select("question_id, storage_path, position")
+    .in("question_id", questionIds)
+    .order("position", { ascending: true });
+  const images = (rows ?? []) as Pick<QuestionImage, "question_id" | "storage_path" | "position">[];
+  if (images.length === 0) return {};
+
+  const { data: signed } = await supabase.storage
+    .from("question-images")
+    .createSignedUrls(images.map((img) => img.storage_path), 3600);
+
+  const byPath = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]));
+  const byQuestion: ImagesByQuestion = {};
+  for (const img of images) {
+    const url = img.storage_path ? byPath.get(img.storage_path) : undefined;
+    if (!url) continue;
+    (byQuestion[img.question_id] ??= []).push(url);
+  }
+  return byQuestion;
+}
 
 // Known grade-answer error reasons (raw English from the Edge Function, see
 // supabase/functions/grade-answer/index.ts) mapped to a localized message.
@@ -73,6 +103,7 @@ export function QuizRuntimePage() {
   const [currentPosition, setCurrentPosition] = useState(0);
   const [viewIndex, setViewIndex] = useState(0);
   const [attemptsByQuestion, setAttemptsByQuestion] = useState<AttemptsByQuestion>({});
+  const [imagesByQuestion, setImagesByQuestion] = useState<ImagesByQuestion>({});
   const [answerText, setAnswerText] = useState("");
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState<string | null>(null);
@@ -110,6 +141,7 @@ export function QuizRuntimePage() {
         .order("position");
       const qList = (qs ?? []) as Question[];
       setQuestions(qList);
+      void loadImagesByQuestion(qList.map((q) => q.id)).then(setImagesByQuestion);
 
       // Participant
       let pid: string | null = null;
@@ -397,6 +429,13 @@ export function QuizRuntimePage() {
         <>
           <div className={styles.questionBox}>
             <pre className={styles.prompt}>{question?.prompt}</pre>
+            {question && (imagesByQuestion[question.id]?.length ?? 0) > 0 && (
+              <div className={styles.questionImages}>
+                {imagesByQuestion[question.id].map((url) => (
+                  <img key={url} src={url} alt="" className={styles.questionImage} />
+                ))}
+              </div>
+            )}
           </div>
 
           {phase === "past" && (
