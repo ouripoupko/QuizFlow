@@ -53,6 +53,10 @@ export interface Quiz {
   cloned_from_quiz_id: string | null;
   created_at: string;
   updated_at: string;
+  /** Bumped only on substantive content edits (title/description/flow_mode,
+   * questions, images) — not status or topic moves. See supabase/migrations/
+   * 20260804150000_quiz_content_staleness.sql. */
+  content_updated_at: string;
 }
 
 export interface Question {

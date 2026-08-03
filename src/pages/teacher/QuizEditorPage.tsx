@@ -7,6 +7,7 @@ import type { FlowMode, Question, Quiz } from "@/types/domain";
 import { UNSORTED_TOPIC_ID } from "@/types/domain";
 import { QuestionEditor } from "@/features/quiz/QuestionEditor";
 import { exportQuizToFile } from "@/features/quiz/quizTransfer";
+import { SessionHistory } from "@/features/session/SessionHistory";
 import { SessionManager } from "@/features/session/SessionManager";
 import styles from "./QuizEditorPage.module.scss";
 
@@ -303,6 +304,11 @@ export function QuizEditorPage() {
 
       {/* ── Session management ───────────────────────────────────────────── */}
       <SessionManager quizId={quizId!} quizPublished={isPublished} />
+      <SessionHistory
+        quizId={quizId!}
+        quizPublished={isPublished}
+        quizContentUpdatedAt={quiz.content_updated_at}
+      />
     </main>
   );
 }

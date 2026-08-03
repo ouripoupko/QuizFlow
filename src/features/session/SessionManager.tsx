@@ -65,7 +65,10 @@ export function SessionManager({ quizId, quizPublished }: Props) {
         .eq("id", session!.id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["active-session", quizId] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["active-session", quizId] });
+      void qc.invalidateQueries({ queryKey: ["session-history", quizId] });
+    },
   });
 
   const joinUrl = session

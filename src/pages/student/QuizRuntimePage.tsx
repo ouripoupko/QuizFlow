@@ -107,6 +107,7 @@ export function QuizRuntimePage() {
   const [answerText, setAnswerText] = useState("");
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState<string | null>(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -119,8 +120,14 @@ export function QuizRuntimePage() {
         .eq("id", sessionId)
         .single();
 
-      if (!session || session.status !== "active") {
+      if (!session) {
         navigate("/my-quizzes", { replace: true });
+        return;
+      }
+
+      if (session.status !== "active") {
+        setSessionEnded(true);
+        setTimeout(() => navigate("/my-quizzes", { replace: true }), 2500);
         return;
       }
 
@@ -250,6 +257,27 @@ export function QuizRuntimePage() {
           navigate("/my-quizzes", { replace: true });
         },
       )
+      // The teacher ended the lesson — let the student know and send them
+      // back, rather than leaving them stuck answering into the void. Not
+      // cleared from localStorage: unlike a removed participant, this row
+      // still exists and rejoining is meant to work if the session is
+      // relaunched later.
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "quiz_sessions",
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { status: string };
+          if (updated.status !== "active") {
+            setSessionEnded(true);
+            setTimeout(() => navigate("/my-quizzes", { replace: true }), 2500);
+          }
+        },
+      )
       // A teacher resolving an "unsure" response (pass or fail) updates it in
       // place — patch it into the matching attempt by question + attempt#.
       // Required for "fail": that resolution never touches session_participants,
@@ -342,6 +370,17 @@ export function QuizRuntimePage() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (sessionEnded) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.done}>
+          <p className={styles.doneTitle}>{t.studentRuntime.sessionEnded}</p>
+          <p className={styles.doneQuiz}>{t.studentRuntime.sessionEndedRedirect}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className={styles.page}>
