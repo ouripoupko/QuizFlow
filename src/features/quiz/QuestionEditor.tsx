@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
@@ -14,6 +14,11 @@ interface Props {
   total: number;
   onMove: (direction: "up" | "down") => void;
   locked?: boolean;
+  /** Lifted to the parent so only one question can be expanded at a time. */
+  open: boolean;
+  onToggle: () => void;
+  /** Reports live whether this question has unsaved edits (only meaningful while open). */
+  onDirtyChange: (dirty: boolean) => void;
 }
 
 export function QuestionEditor({
@@ -23,15 +28,31 @@ export function QuestionEditor({
   total,
   onMove,
   locked = false,
+  open,
+  onToggle,
+  onDirtyChange,
 }: Props) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
   const [codeMode, setCodeMode] = useState(false);
   const [prompt, setPrompt] = useState(question.prompt);
   const [correctAnswer, setCorrectAnswer] = useState(question.correct_answer ?? "");
   const [grading, setGrading] = useState(question.grading_instructions);
   const [askingAi, setAskingAi] = useState(false);
   const [aiError, setAiError] = useState("");
+
+  const dirty = prompt !== question.prompt
+    || (correctAnswer.trim() || null) !== question.correct_answer
+    || grading !== question.grading_instructions;
+
+  useEffect(() => {
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
+
+  function resetToSaved() {
+    setPrompt(question.prompt);
+    setCorrectAnswer(question.correct_answer ?? "");
+    setGrading(question.grading_instructions);
+  }
 
   const questionsKey = ["questions", quizId];
 
@@ -49,7 +70,9 @@ export function QuestionEditor({
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: questionsKey });
-      setOpen(false);
+      // Only reachable while open (the save button lives inside the
+      // expanded body), so this always means "collapse".
+      onToggle();
     },
   });
 
@@ -106,9 +129,10 @@ export function QuestionEditor({
           </button>
         </div>
 
-        <button type="button" className={styles.titleBtn} onClick={() => setOpen((o) => !o)}>
+        <button type="button" className={styles.titleBtn} onClick={onToggle}>
           <span className={styles.num}>{t.quizEditor.questionN} {position + 1}</span>
           <span className={styles.preview}>{promptPreview}</span>
+          {dirty && <span className={styles.unsavedDot} title={t.questionEditor.unsavedChanges} />}
         </button>
 
         {!locked && (
@@ -197,13 +221,23 @@ export function QuestionEditor({
               <button
                 type="button"
                 className="btn btn--primary"
-                disabled={save.isPending || !prompt.trim()}
+                disabled={save.isPending || !prompt.trim() || !dirty}
                 onClick={() => save.mutate()}
               >
                 {save.isPending ? t.quizEditor.saving : t.questionEditor.saveQuestion}
               </button>
             )}
-            <button type="button" className="btn" onClick={() => setOpen(false)}>
+            {!locked && dirty && (
+              <span className={styles.unsavedHint}>{t.questionEditor.unsavedChanges}</span>
+            )}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                resetToSaved();
+                onToggle();
+              }}
+            >
               {t.common.cancel}
             </button>
           </div>

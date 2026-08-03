@@ -6,6 +6,7 @@ import { t } from "@/i18n";
 import type { FlowMode, Question, Quiz } from "@/types/domain";
 import { UNSORTED_TOPIC_ID } from "@/types/domain";
 import { QuestionEditor } from "@/features/quiz/QuestionEditor";
+import { exportQuizToFile } from "@/features/quiz/quizTransfer";
 import { SessionManager } from "@/features/session/SessionManager";
 import styles from "./QuizEditorPage.module.scss";
 
@@ -14,6 +15,14 @@ export function QuizEditorPage() {
   const qc = useQueryClient();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(false);
+  // At most one question expanded at a time (spec: avoid clutter, and
+  // pasting an image would otherwise land in every open ImageUploader).
+  const [openQuestionId, setOpenQuestionId] = useState<string | null>(null);
+  // Only the open question is ever editable, so this tracks its dirty state —
+  // used to block Publish/Export while there's an unsaved edit in progress.
+  const [openQuestionDirty, setOpenQuestionDirty] = useState(false);
 
   // ── Quiz data ────────────────────────────────────────────────────────────
   const { data: quiz, isLoading: quizLoading } = useQuery<Quiz>({
@@ -120,32 +129,60 @@ export function QuizEditorPage() {
   });
 
   // ── Add question ─────────────────────────────────────────────────────────
+  // `position` is intentionally omitted — a DB trigger always appends the
+  // new row at the end of the quiz (see supabase/migrations/
+  // 20260803120000_question_position_integrity.sql).
   const addQuestion = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("questions").insert({
-        quiz_id: quizId!,
-        position: questions.length,
-        prompt: "",
-        grading_instructions: "",
+      const { data, error } = await supabase
+        .from("questions")
+        .insert({
+          quiz_id: quizId!,
+          prompt: "",
+          grading_instructions: "",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id as string;
+    },
+    onSuccess: (id) => {
+      setOpenQuestionId(id);
+      setOpenQuestionDirty(false);
+      void qc.invalidateQueries({ queryKey: ["questions", quizId] });
+    },
+  });
+
+  // ── Reorder questions ────────────────────────────────────────────────────
+  // A single RPC call so the swap is one transaction — two independent
+  // updates could momentarily leave both rows at the same position, which
+  // the DB's uniqueness constraint would otherwise reject.
+  const moveQuestion = useMutation({
+    mutationFn: async ({ idx, direction }: { idx: number; direction: "up" | "down" }) => {
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      const a = questions[idx];
+      const b = questions[swapIdx];
+      const { error } = await supabase.rpc("swap_question_positions", {
+        _question_id_a: a.id,
+        _question_id_b: b.id,
       });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["questions", quizId] }),
   });
 
-  // ── Reorder questions ────────────────────────────────────────────────────
-  const moveQuestion = useMutation({
-    mutationFn: async ({ idx, direction }: { idx: number; direction: "up" | "down" }) => {
-      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      const a = questions[idx];
-      const b = questions[swapIdx];
-      await Promise.all([
-        supabase.from("questions").update({ position: b.position }).eq("id", a.id),
-        supabase.from("questions").update({ position: a.position }).eq("id", b.id),
-      ]);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["questions", quizId] }),
-  });
+  async function handleExport() {
+    if (!quiz) return;
+    setExporting(true);
+    setExportError(false);
+    try {
+      await exportQuizToFile(quiz, questions);
+    } catch {
+      setExportError(true);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (quizLoading || qLoading) return <p className={styles.loading}>{t.common.loading}</p>;
   if (!quiz) return <p>{t.common.error}</p>;
@@ -165,14 +202,25 @@ export function QuizEditorPage() {
         <div className={styles.spacer} />
         <button
           type="button"
+          className="btn"
+          disabled={exporting || openQuestionDirty}
+          title={openQuestionDirty ? t.quizEditor.unsavedChangesBlockHint : undefined}
+          onClick={() => void handleExport()}
+        >
+          {exporting ? t.quizEditor.exporting : t.quizEditor.exportQuiz}
+        </button>
+        <button
+          type="button"
           className={`btn ${isPublished ? "" : "btn--primary"}`}
-          disabled={togglePublish.isPending}
+          disabled={togglePublish.isPending || openQuestionDirty}
+          title={openQuestionDirty ? t.quizEditor.unsavedChangesBlockHint : undefined}
           onClick={() => togglePublish.mutate()}
         >
           {isPublished ? t.quizEditor.unpublish : t.quizEditor.publish}
         </button>
       </div>
 
+      {exportError && <p className={styles.exportError}>{t.quizEditor.exportError}</p>}
       {isPublished && <p className={styles.lockedHint}>{t.quizEditor.lockedHint}</p>}
 
       {/* ── Quiz metadata ───────────────────────────────────────────────── */}
@@ -231,6 +279,14 @@ export function QuizEditorPage() {
             total={questions.length}
             onMove={(dir) => moveQuestion.mutate({ idx, direction: dir })}
             locked={isPublished}
+            open={q.id === openQuestionId}
+            onToggle={() => {
+              setOpenQuestionId((cur) => (cur === q.id ? null : q.id));
+              setOpenQuestionDirty(false);
+            }}
+            onDirtyChange={(dirty) => {
+              if (q.id === openQuestionId) setOpenQuestionDirty(dirty);
+            }}
           />
         ))}
         {!isPublished && (

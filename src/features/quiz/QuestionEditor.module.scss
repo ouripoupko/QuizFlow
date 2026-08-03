@@ -70,6 +70,14 @@
   white-space: nowrap;
 }
 
+.unsavedDot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
 .deleteBtn {
   background: none;
   border: none;
@@ -178,7 +186,13 @@
 
 .actions {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
+}
+
+.unsavedHint {
+  font-size: 0.8rem;
+  color: #b45309;
 }
 
 .error {

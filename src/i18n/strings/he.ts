@@ -115,6 +115,9 @@ export const he = {
     deleteQuiz: "מחק שאלון",
     deleteConfirm: "למחוק את השאלון? פעולה זו לא ניתנת לביטול.",
     creating: "יוצר…",
+    importQuiz: "ייבוא מקובץ",
+    importing: "מייבא…",
+    importError: "הייבוא נכשל — ודאו שהקובץ תקין ונוצר על ידי QuizFlow.",
   },
   studentQuizzes: {
     noneYet: "עדיין לא הצטרפת לאף שאלון.",
@@ -147,6 +150,10 @@ export const he = {
     questionN: "שאלה",
     saving: "שומר…",
     saved: "נשמר",
+    exportQuiz: "ייצוא לקובץ",
+    exporting: "מייצא…",
+    exportError: "הייצוא נכשל.",
+    unsavedChangesBlockHint: "יש לשמור או לבטל את השינויים בשאלה הפתוחה לפני פעולה זו.",
   },
   questionEditor: {
     promptLabel: "טקסט השאלה",
@@ -165,6 +172,7 @@ export const he = {
     deleteQuestionConfirm: "למחוק את השאלה?",
     moveUp: "↑",
     moveDown: "↓",
+    unsavedChanges: "יש שינויים שלא נשמרו",
   },
   gradingTemplates: {
     selectPlaceholder: "בחר תבנית…",

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
 import type { QuizSession } from "@/types/domain";
+import { JoinQrCode } from "./JoinQrCode";
 import styles from "./SessionManager.module.scss";
 
 interface Props {
@@ -117,6 +118,7 @@ export function SessionManager({ quizId, quizPublished }: Props) {
           {copied ? t.session.linkCopied : t.session.copyLink}
         </button>
       </div>
+      <JoinQrCode value={joinUrl} />
       <div className={styles.bottomRow}>
         <Link
           to={`/session/${session.id}/board`}

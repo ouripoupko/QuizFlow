@@ -96,9 +96,13 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
     [quizId, questionId, qc, imagesKey, locked],
   );
 
-  // Paste handler — captures Ctrl+V anywhere while the component is mounted.
+  // Paste handler — window-level (Ctrl+V has no natural focus target), but
+  // only acts while the mouse is over this uploader, so pasting with several
+  // question editors open doesn't add the image to all of them at once.
+  const hoveredRef = useRef(false);
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
+      if (!hoveredRef.current) return;
       const item = Array.from(e.clipboardData?.items ?? []).find(
         (i) => i.type.startsWith("image/"),
       );
@@ -115,7 +119,13 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
       await supabase.storage.from("question-images").remove([img.storage_path]);
       await supabase.from("question_images").delete().eq("id", img.id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: imagesKey }),
+    onSuccess: () => {
+      // The deleted thumbnail's mouseleave never fires (it's removed from
+      // the DOM, not left), so the zoom portal would otherwise be orphaned
+      // showing a now-deleted image.
+      setZoom(null);
+      void qc.invalidateQueries({ queryKey: imagesKey });
+    },
   });
 
   // Rendered via a portal to <body> (position: fixed) so it isn't clipped by
@@ -133,7 +143,11 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
   }
 
   return (
-    <div className={styles.root}>
+    <div
+      className={styles.root}
+      onMouseEnter={() => { hoveredRef.current = true; }}
+      onMouseLeave={() => { hoveredRef.current = false; }}
+    >
       {images.map((img) => (
         <div
           key={img.id}

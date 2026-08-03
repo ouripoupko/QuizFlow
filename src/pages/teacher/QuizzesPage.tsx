@@ -1,8 +1,10 @@
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
+import { importQuizFromFile, parseQuizExportFile } from "@/features/quiz/quizTransfer";
 import type { Quiz } from "@/types/domain";
 import styles from "./QuizzesPage.module.scss";
 
@@ -10,6 +12,9 @@ export function QuizzesPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState(false);
 
   const { data: quizzes = [], isLoading } = useQuery<Quiz[]>({
     queryKey: ["quizzes", "mine"],
@@ -49,19 +54,57 @@ export function QuizzesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quizzes", "mine"] }),
   });
 
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    setImportError(false);
+    try {
+      const parsed = await parseQuizExportFile(file);
+      const newQuizId = await importQuizFromFile(parsed, user!.id);
+      void qc.invalidateQueries({ queryKey: ["quizzes", "mine"] });
+      navigate(`/teacher/quizzes/${newQuizId}`);
+    } catch {
+      setImportError(true);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>{t.quizList.pageTitle}</h1>
-        <button
-          type="button"
-          className="btn btn--primary"
-          disabled={create.isPending}
-          onClick={() => create.mutate()}
-        >
-          {create.isPending ? t.quizList.creating : t.quizList.createNew}
-        </button>
+        <div className={styles.headerActions}>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className={styles.hiddenInput}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleImportFile(file);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className="btn"
+            disabled={importing}
+            onClick={() => importInputRef.current?.click()}
+          >
+            {importing ? t.quizList.importing : t.quizList.importQuiz}
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={create.isPending}
+            onClick={() => create.mutate()}
+          >
+            {create.isPending ? t.quizList.creating : t.quizList.createNew}
+          </button>
+        </div>
       </header>
+
+      {importError && <p className={styles.importError}>{t.quizList.importError}</p>}
 
       {isLoading && <p>{t.common.loading}</p>}
 
