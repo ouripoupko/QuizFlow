@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
+import { DirectionalTextarea } from "@/components/DirectionalTextarea";
 import type { Question } from "@/types/domain";
 import { GradingInstructionEditor } from "./GradingInstructionEditor";
 import { ImageUploader } from "./ImageUploader";
@@ -171,13 +172,13 @@ export function QuestionEditor({
               </button>
             </div>
           </label>
-          <textarea
+          <DirectionalTextarea
             className={`${styles.textarea} ${codeMode ? styles.code : ""}`}
             value={prompt}
             rows={4}
             placeholder={t.questionEditor.promptPlaceholder}
             disabled={locked}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={setPrompt}
           />
 
           {/* Images */}

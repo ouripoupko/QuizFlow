@@ -190,6 +190,11 @@ export const he = {
     uploading: "מעלה…",
     deleteImage: "מחק",
   },
+  directionalText: {
+    ltrLabel: "כיוון השורה הנוכחית: משמאל לימין",
+    rtlLabel: "כיוון השורה הנוכחית: מימין לשמאל",
+    keyboardHint: "בעת הקלדת נוסחה או מספר בכיוון משמאל לימין, יש להחליף את שפת המקלדת לאנגלית.",
+  },
   session: {
     startSession: "התחל שיעור",
     startDisabledHint: "יש לפרסם את השאלון לפני התחלת שיעור.",

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
+import { DirectionalTextarea } from "@/components/DirectionalTextarea";
 import { useAuthStore } from "@/store/authStore";
 import type {
   AiGradingResult,
@@ -515,13 +516,13 @@ export function QuizRuntimePage() {
               {latest?.decision === "fail" && (
                 <p className={styles.retryHint}>{t.studentRuntime.tryAgain}</p>
               )}
-              <textarea
+              <DirectionalTextarea
                 className={styles.answerInput}
                 placeholder={t.studentRuntime.answerPlaceholder}
                 value={answerText}
                 rows={6}
                 disabled={grading}
-                onChange={(e) => setAnswerText(e.target.value)}
+                onChange={setAnswerText}
               />
               {gradeError && <p className={styles.gradeError}>{gradeError}</p>}
               <button

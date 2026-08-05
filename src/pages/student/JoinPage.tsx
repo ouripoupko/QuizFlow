@@ -46,21 +46,26 @@ export function JoinPage() {
     setJoining(true);
     setJoinError("");
 
-    // Already joined this session? Confirm the row still exists — a teacher
-    // may have removed it (control board "remove student"), in which case we
-    // fall through and rejoin fresh instead of navigating to a dead end.
-    const cached = localStorage.getItem(`qf_participant_${session.id}`);
-    if (cached) {
-      const { data: existing } = await supabase
-        .from("session_participants")
-        .select("id")
-        .eq("id", cached)
-        .maybeSingle();
-      if (existing) {
-        navigate(`/session/${session.id}`, { replace: true });
-        return;
-      }
-      localStorage.removeItem(`qf_participant_${session.id}`);
+    const goToExisting = (participantId: string) => {
+      localStorage.setItem(`qf_participant_${session.id}`, participantId);
+      navigate(`/session/${session.id}`, { replace: true });
+    };
+
+    // Already joined this session? Check by identity (session_id +
+    // student_id), not the locally cached participant id — the cache can be
+    // missing (different device/browser, cleared storage) even though a
+    // participant row already exists, which would otherwise hit the DB's
+    // uniqueness constraint on the insert below and surface as a raw error.
+    const { data: existing } = await supabase
+      .from("session_participants")
+      .select("id")
+      .eq("session_id", session.id)
+      .eq("student_id", user.id)
+      .maybeSingle();
+
+    if (existing) {
+      goToExisting(existing.id);
+      return;
     }
 
     const { data, error } = await supabase
@@ -73,14 +78,33 @@ export function JoinPage() {
       .select("id")
       .single();
 
-    if (error || !data) {
-      setJoinError(error?.message ?? t.common.error);
+    if (error) {
+      // Lost a race with another tab/click doing the same insert — still
+      // means "already joined," not a real failure.
+      if (error.code === "23505") {
+        const { data: raceWinner } = await supabase
+          .from("session_participants")
+          .select("id")
+          .eq("session_id", session.id)
+          .eq("student_id", user.id)
+          .single();
+        if (raceWinner) {
+          goToExisting(raceWinner.id);
+          return;
+        }
+      }
+      setJoinError(error.message);
       setJoining(false);
       return;
     }
 
-    localStorage.setItem(`qf_participant_${session.id}`, data.id);
-    navigate(`/session/${session.id}`, { replace: true });
+    if (!data) {
+      setJoinError(t.common.error);
+      setJoining(false);
+      return;
+    }
+
+    goToExisting(data.id);
   };
 
   if (isLoading) {
