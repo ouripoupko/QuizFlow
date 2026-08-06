@@ -84,45 +84,154 @@
   overflow-y: auto;
 }
 
-.mistakesBox {
+.answersBox {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
 }
 
-.mistakesLabel {
+.answersLabel {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #991b1b;
+  color: var(--color-text-muted);
 }
 
-.mistakesList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.answersList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  max-block-size: 140px;
+  gap: var(--space-3);
+  max-block-size: 320px;
   overflow-y: auto;
 }
 
-.mistakeItem {
-  font-size: 0.8rem;
-  line-height: 1.4;
+.questionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.mistakeQuestion {
+.questionGroupLabel {
+  font-size: 0.75rem;
   font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.answersTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+
+  th {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-align: start;
+    padding: var(--space-1) var(--space-2);
+    border-block-end: 1px solid var(--color-border);
+  }
+
+  td {
+    padding: var(--space-2);
+    vertical-align: top;
+    border-block-end: 1px solid var(--color-border);
+  }
+}
+
+.answerCol {
+  inline-size: 36%;
+}
+
+.aiReplyCol {
+  inline-size: 54%;
+}
+
+.statusCol {
+  inline-size: 10%;
+}
+
+.statusColumn {
+  white-space: nowrap;
+}
+
+.attemptRow--pass {
+  background: #f0fdf4;
+}
+
+.attemptRow--fail {
+  background: #fef2f2;
+}
+
+.attemptRow--unsure {
+  background: #fffbeb;
+}
+
+.attemptDecision {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.attemptDecision--pass {
+  color: #065f46;
+}
+
+.attemptDecision--fail {
   color: #991b1b;
 }
 
-.mistakeText {
+.attemptDecision--unsure {
+  color: #92400e;
+}
+
+.adminToggle {
+  margin-inline-start: var(--space-1);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  padding: 0;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.attemptText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1.4;
   color: var(--color-text);
+  max-block-size: 120px;
+  overflow-y: auto;
+}
+
+.adminRow td {
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.03));
+  padding: var(--space-2) var(--space-3);
+}
+
+.adminRowLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-block-end: var(--space-1);
+}
+
+.adminRawData {
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.04));
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  direction: ltr;
+  text-align: left;
 }
 
 .resolveActions {

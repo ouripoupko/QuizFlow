@@ -10,7 +10,6 @@ import { z } from "npm:zod@3";
 export const AiGradingResultSchema = z.object({
   decision: z.enum(["pass", "fail", "unsure"]),
   studentFeedback: z.string(),
-  teacherReport: z.string(),
 });
 
 export type AiGradingResult = z.infer<typeof AiGradingResultSchema>;

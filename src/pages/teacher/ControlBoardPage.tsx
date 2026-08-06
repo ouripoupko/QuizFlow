@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
+import { useIsAdmin } from "@/auth/useIsAdmin";
 import type {
   FlowMode,
   Question,
@@ -30,14 +31,9 @@ function deriveStatus(
   return "answering";
 }
 
-// A "mistake" for the control board (spec §10.1) is a failed attempt the AI
-// (or a teacher override) actually explained — blank reports add no value.
-function isMistake(response: DbResponse): boolean {
-  return response.decision === "fail" && !!response.teacher_report?.trim();
-}
-
 export function ControlBoardPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { isAdmin } = useIsAdmin();
 
   const [quizId, setQuizId] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState("");
@@ -122,7 +118,7 @@ export function ControlBoardPage() {
         return {
           participant: p,
           latestResponse,
-          mistakes: ownResponses.filter(isMistake),
+          answers: ownResponses,
           status: deriveStatus(
             p,
             latestResponse,
@@ -175,7 +171,7 @@ export function ControlBoardPage() {
             const entry: ParticipantDisplay = {
               participant: p,
               latestResponse: null,
-              mistakes: [],
+              answers: [],
               status: deriveStatus(p, null, qList.length, fm),
             };
             setDisplays((prev) => {
@@ -232,24 +228,21 @@ export function ControlBoardPage() {
           );
           if (!display) return;
 
-          // A fail can arrive after the student's already been pushed past this
-          // question (race with the async AI round-trip) — still record it.
-          const mistakes = isMistake(resp)
-            ? [...display.mistakes, resp]
-            : display.mistakes;
+          const answers = [...display.answers, resp];
 
+          // A response can arrive after the student's already been pushed past
+          // this question (race with the async AI round-trip) — still record it,
+          // just don't treat it as the current-question answer box.
           const currentQId =
             qList[display.participant.current_position]?.id ?? null;
           if (resp.question_id !== currentQId) {
-            if (mistakes !== display.mistakes) {
-              updateDisplay(resp.participant_id, { mistakes });
-            }
+            updateDisplay(resp.participant_id, { answers });
             return;
           }
 
           updateDisplay(resp.participant_id, {
             latestResponse: resp,
-            mistakes,
+            answers,
             status: deriveStatus(display.participant, resp, qList.length, fm),
           });
         },
@@ -270,20 +263,19 @@ export function ControlBoardPage() {
           );
           if (!display) return;
 
-          // Teacher-resolved "unsure" responses land here — dedupe by id since
-          // this row may already be in `mistakes` from the initial load.
-          const withoutStale = display.mistakes.filter((m) => m.id !== resp.id);
-          const mistakes = isMistake(resp) ? [...withoutStale, resp] : withoutStale;
+          // Teacher-resolved "unsure" responses land here — replace the stale
+          // copy already in `answers` from the initial load/insert.
+          const answers = display.answers.map((a) => (a.id === resp.id ? resp : a));
 
           const currentQId =
             qList[display.participant.current_position]?.id ?? null;
           if (resp.question_id !== currentQId) {
-            updateDisplay(resp.participant_id, { mistakes });
+            updateDisplay(resp.participant_id, { answers });
             return;
           }
           updateDisplay(resp.participant_id, {
             latestResponse: resp,
-            mistakes,
+            answers,
             status: deriveStatus(display.participant, resp, qList.length, fm),
           });
         },
@@ -336,6 +328,7 @@ export function ControlBoardPage() {
             key={d.participant.id}
             display={d}
             questions={questions}
+            isAdmin={isAdmin}
           />
         ))}
       </div>

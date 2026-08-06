@@ -21,7 +21,6 @@ interface Attempt {
   answerText: string;
   decision: GradingDecision | null;
   studentFeedback: string | null;
-  teacherReport: string | null;
 }
 
 type AttemptsByQuestion = Record<string, Attempt[]>;
@@ -192,7 +191,7 @@ export function QuizRuntimePage() {
       // back over completed questions without extra round-trips.
       const { data: responses } = await supabase
         .from("responses")
-        .select("question_id, attempt_number, answer_text, decision, student_feedback, teacher_report")
+        .select("question_id, attempt_number, answer_text, decision, student_feedback")
         .eq("participant_id", pid)
         .order("attempt_number", { ascending: true });
 
@@ -203,7 +202,6 @@ export function QuizRuntimePage() {
         answer_text: string;
         decision: GradingDecision | null;
         student_feedback: string | null;
-        teacher_report: string | null;
       }>) {
         const list = byQuestion[r.question_id] ?? [];
         list.push({
@@ -211,7 +209,6 @@ export function QuizRuntimePage() {
           answerText: r.answer_text,
           decision: r.decision,
           studentFeedback: r.student_feedback,
-          teacherReport: r.teacher_report,
         });
         byQuestion[r.question_id] = list;
       }
@@ -302,7 +299,6 @@ export function QuizRuntimePage() {
               ...nextList[idx],
               decision: resp.decision,
               studentFeedback: resp.student_feedback,
-              teacherReport: resp.teacher_report,
             };
             return { ...prev, [resp.question_id]: nextList };
           });
@@ -348,7 +344,6 @@ export function QuizRuntimePage() {
             answerText: answerText.trim(),
             decision: result.decision,
             studentFeedback: result.studentFeedback,
-            teacherReport: result.teacherReport,
           },
         ],
       };

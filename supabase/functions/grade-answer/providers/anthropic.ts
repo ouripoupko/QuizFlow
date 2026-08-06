@@ -1,6 +1,5 @@
-import type { AiGradingResult } from "../../_shared/aiTypes.ts";
 import { AiGradingResultSchema } from "../../_shared/aiTypes.ts";
-import type { GradingInput, GradingSettings, ProviderAdapter } from "./types.ts";
+import type { GradingInput, GradingOutcome, GradingSettings, ProviderAdapter } from "./types.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 // Fallback only — in practice `model` always comes from the teacher's saved
@@ -38,9 +37,8 @@ function buildPrompt(input: GradingInput): string {
         `לכן ה-"studentFeedback" לא יחשוף את התשובה הנכונה, לא יצטט אותה ולא ינוסח כך שניתן להסיק ממנו ` +
         `את התשובה המדויקת. אם אפשר להצביע למה שגוי בתשובת התלמיד מבלי לרמוז על הפתרון — עשה זאת; אחרת ` +
         `די במשוב כללי בלבד (למשל "התשובה אינה נכונה, נסה שוב"), בלי לגלות את התשובה — זה תמיד אפשרי, גם ` +
-        `לשאלות עם תשובה קצרה או עובדתית. ניתוח מלא, כולל התשובה הנכונה במידת הצורך, מותר רק ב-"teacherReport" ` +
-        `(לא מוצג לתלמיד). חובה להחזיר JSON תקין לפי הפורמט למטה בכל מקרה — גם אם אתה מתלבט, בחר "unsure" ` +
-        `ולא טקסט חופשי.`,
+        `לשאלות עם תשובה קצרה או עובדתית. חובה להחזיר JSON תקין לפי הפורמט למטה בכל מקרה — גם אם אתה ` +
+        `מתלבט, בחר "unsure" ולא טקסט חופשי.`,
     );
   }
 
@@ -48,8 +46,7 @@ function buildPrompt(input: GradingInput): string {
 החזר אובייקט JSON בדיוק בצורה הבאה, ללא טקסט נוסף לפני או אחרי:
 {
   "decision": "pass" | "fail" | "unsure",
-  "studentFeedback": "<משוב קצר לתלמיד, יכול להיות ריק>",
-  "teacherReport": "<דיווח על שגיאות למורה, יכול להיות ריק>"
+  "studentFeedback": "<משוב קצר לתלמיד, יכול להיות ריק>"
 }
 השתמש ב-"unsure" אם אינך בטוח, או אם אינך יכול לעמוד בהנחיות אלה מכל סיבה שהיא.`);
 
@@ -68,7 +65,7 @@ function buildThinking(thinkingFamily: GradingSettings["thinkingFamily"]): Recor
 }
 
 export const anthropicAdapter: ProviderAdapter = {
-  async grade(input: GradingInput, settings: GradingSettings): Promise<AiGradingResult> {
+  async grade(input: GradingInput, settings: GradingSettings): Promise<GradingOutcome> {
     const thinking = buildThinking(settings.thinkingFamily);
 
     const body: Record<string, unknown> = {
@@ -96,8 +93,8 @@ export const anthropicAdapter: ProviderAdapter = {
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Anthropic API error ${response.status}: ${body}`);
+      const errBody = await response.text();
+      throw new Error(`Anthropic API error ${response.status}: ${errBody}`);
     }
 
     const data = await response.json() as {
@@ -111,16 +108,16 @@ export const anthropicAdapter: ProviderAdapter = {
 
     // Zod validates the shape before we trust it (spec §8.4).
     try {
-      return AiGradingResultSchema.parse(JSON.parse(json));
+      const result = AiGradingResultSchema.parse(JSON.parse(json));
+      return { result, rawRequest: body };
     } catch {
       // The model broke format (e.g. replied in prose instead of JSON) —
-      // treat it the same as a low-confidence verdict rather than failing
-      // the request outright. The raw reply goes to teacherReport so the
-      // teacher can see what happened and resolve it manually.
+      // log it and fall back to a low-confidence verdict rather than
+      // failing the request outright.
+      console.error("grade-answer: AI reply was not valid JSON:", text.slice(0, 2000));
       return {
-        decision: "unsure",
-        studentFeedback: "",
-        teacherReport: `תגובת ה-AI לא הייתה בפורמט הצפוי:\n${text.slice(0, 2000)}`,
+        result: { decision: "unsure", studentFeedback: "" },
+        rawRequest: body,
       };
     }
   },

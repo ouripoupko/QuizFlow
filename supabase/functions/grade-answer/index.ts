@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
 
     // ── 6. Call the provider adapter; Zod-validate the result ────────────────
     const adapter = getProviderAdapter(provider);
-    const raw = await adapter.grade(
+    const outcome = await adapter.grade(
       {
         questionPrompt: question.prompt,
         gradingInstructions: question.grading_instructions,
@@ -170,7 +170,7 @@ Deno.serve(async (req: Request) => {
       },
     );
 
-    const result = AiGradingResultSchema.parse(raw);
+    const result = AiGradingResultSchema.parse(outcome.result);
 
     // ── 7. Persist: rate-limit record + response row ─────────────────────────
     await supabase.from("grading_rate_calls").insert({
@@ -184,7 +184,7 @@ Deno.serve(async (req: Request) => {
       answer_text: input.answer_text,
       decision: result.decision,
       student_feedback: result.studentFeedback,
-      teacher_report: result.teacherReport,
+      ai_request: outcome.rawRequest,
       graded_by: "ai",
       graded_at: new Date().toISOString(),
     });

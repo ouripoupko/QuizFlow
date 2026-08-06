@@ -13,8 +13,8 @@ export interface GradingInput {
   answerSequence: string[];
   /**
    * "infinite_attempts" quizzes require the student to keep retrying until they
-   * pass, so the adapter must never leak the correct answer to studentFeedback
-   * for these — only to teacherReport, which the student never sees.
+   * pass, so the adapter must never leak the correct answer via studentFeedback
+   * for these — general feedback only, never the answer itself.
    */
   flowMode: "infinite_attempts" | "single_attempt";
 }
@@ -43,10 +43,20 @@ export interface GradingSettings {
 }
 
 /**
+ * The AI's verdict plus the exact request body sent to the provider for this
+ * call — captured for the admin-only raw-data view on the control board.
+ * Never includes the API key, which travels in a request header, not the body.
+ */
+export interface GradingOutcome {
+  result: AiGradingResult;
+  rawRequest: unknown;
+}
+
+/**
  * The provider adapter interface (spec §8.4). Each AI provider is one
  * implementation of this interface; call sites never reference a concrete
  * provider, only this shape.
  */
 export interface ProviderAdapter {
-  grade(input: GradingInput, settings: GradingSettings): Promise<AiGradingResult>;
+  grade(input: GradingInput, settings: GradingSettings): Promise<GradingOutcome>;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import type { Question, Response as DbResponse, SessionParticipant } from "@/types/domain";
@@ -9,23 +9,38 @@ type ParticipantStatus = "answering" | "waiting" | "done";
 export interface ParticipantDisplay {
   participant: SessionParticipant;
   latestResponse: DbResponse | null;
-  /** Fail-decision responses with a non-empty teacherReport (spec §10.1). */
-  mistakes: DbResponse[];
+  /** Every response this participant has submitted, across all questions. */
+  answers: DbResponse[];
   status: ParticipantStatus;
 }
 
 interface Props {
   display: ParticipantDisplay;
   questions: Question[];
+  isAdmin: boolean;
 }
 
-export function ParticipantCard({ display, questions }: Props) {
-  const { participant, latestResponse, mistakes, status } = display;
+function decisionLabel(decision: DbResponse["decision"]): string {
+  if (decision === "pass") return t.controlBoard.decisionPass;
+  if (decision === "fail") return t.controlBoard.decisionFail;
+  return t.controlBoard.decisionUnsure;
+}
+
+export function ParticipantCard({ display, questions, isAdmin }: Props) {
+  const { participant, latestResponse, answers, status } = display;
   const [pushing, setPushing] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [expandedAiRequests, setExpandedAiRequests] = useState<Set<string>>(new Set());
 
-  const questionPositions = new Map(questions.map((q) => [q.id, q.position]));
+  const toggleAiRequest = (id: string) => {
+    setExpandedAiRequests((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const push = async () => {
     setPushing(true);
@@ -55,6 +70,21 @@ export function ParticipantCard({ display, questions }: Props) {
   const pos = participant.current_position;
   const total = questions.length;
   const currentQ = questions[pos] ?? null;
+
+  // Every question the student has answered, in quiz order, each with its
+  // own attempt history (attempt_number ascending).
+  const byQuestion = new Map<string, DbResponse[]>();
+  for (const a of answers) {
+    const list = byQuestion.get(a.question_id);
+    if (list) list.push(a);
+    else byQuestion.set(a.question_id, [a]);
+  }
+  const answerGroups = questions
+    .filter((q) => byQuestion.has(q.id))
+    .map((q) => ({
+      question: q,
+      attempts: [...byQuestion.get(q.id)!].sort((a, b) => a.attempt_number - b.attempt_number),
+    }));
 
   return (
     <div className={`${styles.card} ${styles[`status--${status}`]}`}>
@@ -102,19 +132,81 @@ export function ParticipantCard({ display, questions }: Props) {
         </div>
       )}
 
-      {mistakes.length > 0 && (
-        <div className={styles.mistakesBox}>
-          <span className={styles.mistakesLabel}>{t.controlBoard.mistakesLabel}</span>
-          <ul className={styles.mistakesList}>
-            {mistakes.map((m) => (
-              <li key={m.id} className={styles.mistakeItem}>
-                <span className={styles.mistakeQuestion}>
-                  {t.controlBoard.questionN} {(questionPositions.get(m.question_id) ?? 0) + 1}:
-                </span>{" "}
-                <span className={styles.mistakeText}>{m.teacher_report}</span>
-              </li>
+      {answerGroups.length > 0 && (
+        <div className={styles.answersBox}>
+          <span className={styles.answersLabel}>{t.controlBoard.answersLabel}</span>
+          <div className={styles.answersList}>
+            {answerGroups.map(({ question, attempts }) => (
+              <div key={question.id} className={styles.questionGroup}>
+                <span className={styles.questionGroupLabel}>
+                  {t.controlBoard.questionN} {question.position + 1}
+                </span>
+                <table className={styles.answersTable}>
+                  <colgroup>
+                    <col className={styles.answerCol} />
+                    <col className={styles.aiReplyCol} />
+                    <col className={styles.statusCol} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>{t.controlBoard.answerColumnHeader}</th>
+                      <th>{t.controlBoard.aiReplyColumnHeader}</th>
+                      <th className={styles.statusColumn}>{t.controlBoard.statusColumnHeader}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attempts.map((a) => {
+                      const decision = a.decision ?? "unsure";
+                      const hasAdminData = isAdmin && !!a.ai_request;
+                      const expanded = expandedAiRequests.has(a.id);
+                      return (
+                        <Fragment key={a.id}>
+                          <tr className={styles[`attemptRow--${decision}`]}>
+                            <td>
+                              <pre className={styles.attemptText}>{a.answer_text}</pre>
+                            </td>
+                            <td>
+                              <pre className={styles.attemptText}>{a.student_feedback}</pre>
+                            </td>
+                            <td className={styles.statusColumn}>
+                              <span
+                                className={`${styles.attemptDecision} ${styles[`attemptDecision--${decision}`]}`}
+                              >
+                                {decisionLabel(a.decision)}
+                              </span>
+                              {hasAdminData && (
+                                <button
+                                  type="button"
+                                  className={styles.adminToggle}
+                                  aria-label={t.controlBoard.adminRawDataLabel}
+                                  aria-expanded={expanded}
+                                  onClick={() => toggleAiRequest(a.id)}
+                                >
+                                  {expanded ? "▲" : "▼"}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                          {hasAdminData && expanded && (
+                            <tr className={styles.adminRow}>
+                              <td colSpan={3}>
+                                <div className={styles.adminRowLabel}>
+                                  {t.controlBoard.adminRawDataLabel}
+                                </div>
+                                <pre className={styles.adminRawData}>
+                                  {JSON.stringify(a.ai_request, null, 2)}
+                                </pre>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
 

@@ -133,7 +133,8 @@ export interface Response {
   /** AiGradingResult fields (spec §7.2); null until graded. */
   decision: GradingDecision | null;
   student_feedback: string | null;
-  teacher_report: string | null;
+  /** Exact request body sent to the AI provider for this grading call — admin-only, never contains the API key. */
+  ai_request: Record<string, unknown> | null;
   graded_by: GradingSource | null;
   graded_at: string | null;
 }
@@ -141,7 +142,6 @@ export interface Response {
 export interface AiGradingResult {
   decision: GradingDecision;
   studentFeedback: string;
-  teacherReport: string;
 }
 
 export interface TeacherAction {
