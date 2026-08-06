@@ -20,36 +20,51 @@ export function getLineBounds(text: string, cursorPos: number): LineBounds {
   return { start, end };
 }
 
-export function isLineMarkedLtr(text: string, { start, end }: LineBounds): boolean {
-  return end - start >= 2 && text[start] === LRI && text[end - 1] === PDI;
+/** Whether `cursorPos` currently sits inside an LRI…PDI isolate on its line. Walks the
+ * line's marks up to the cursor and tracks isolate depth, rather than assuming the whole
+ * line is exactly one wrapped span — a plain start/end boundary check breaks as soon as
+ * you type past the closing PDI (still the same paragraph to the user) or a line ends up
+ * with more than one marked run in it. */
+export function isLineMarkedLtr(text: string, cursorPos: number): boolean {
+  const { start, end } = getLineBounds(text, cursorPos);
+  const relPos = Math.min(Math.max(cursorPos, start), end) - start;
+  const parts = text.slice(start, end).split(/([\u2066\u2069])/);
+
+  let depth = 0;
+  let offset = 0;
+  for (const part of parts) {
+    if (offset >= relPos) break;
+    if (part === LRI) depth++;
+    else if (part === PDI) depth = Math.max(0, depth - 1);
+    offset += part.length;
+  }
+  return depth > 0;
 }
 
-/** Sets the line at `cursorPos` to the given direction — a no-op if it's already there. */
+const MARKS = /[\u2066\u2069]/g;
+
+/** Sets the line at `cursorPos` to the given direction — a no-op if it's already there.
+ * Always normalizes: strips every isolate mark already on the line, then re-wraps only
+ * if the target is LTR. This is self-healing against a line left in an inconsistent
+ * state by a previous edit (e.g. typing past a closing PDI, or a stray extra pair),
+ * rather than trying to detect and patch one specific expected prior shape. */
 export function setLineDirection(
   text: string,
   cursorPos: number,
   dir: "ltr" | "rtl",
 ): { text: string; cursorPos: number } {
-  const alreadyThere = isLineMarkedLtr(text, getLineBounds(text, cursorPos)) === (dir === "ltr");
-  return alreadyThere ? { text, cursorPos } : toggleLineDirection(text, cursorPos);
-}
+  if (isLineMarkedLtr(text, cursorPos) === (dir === "ltr")) return { text, cursorPos };
 
-/** Wraps/unwraps the line at `cursorPos` in LTR isolate marks. Returns the new text and a cursor
- * position that keeps the same relative offset within the line's own content. */
-function toggleLineDirection(text: string, cursorPos: number): { text: string; cursorPos: number } {
-  const bounds = getLineBounds(text, cursorPos);
-  const { start, end } = bounds;
+  const { start, end } = getLineBounds(text, cursorPos);
   const relOffset = Math.min(Math.max(cursorPos, start), end) - start;
+  const line = text.slice(start, end);
 
-  if (isLineMarkedLtr(text, bounds)) {
-    const content = text.slice(start + 1, end - 1);
-    const newText = text.slice(0, start) + content + text.slice(end);
-    const newRel = Math.min(Math.max(0, relOffset - 1), content.length);
-    return { text: newText, cursorPos: start + newRel };
-  }
+  const marksBeforeCursor = (line.slice(0, relOffset).match(MARKS) ?? []).length;
+  const clean = line.replace(MARKS, "");
+  const cleanRel = relOffset - marksBeforeCursor;
 
-  const content = text.slice(start, end);
-  const newText = `${text.slice(0, start)}${LRI}${content}${PDI}${text.slice(end)}`;
-  const newRel = Math.min(relOffset + 1, content.length + 1);
-  return { text: newText, cursorPos: start + newRel };
+  const newLine = dir === "ltr" ? `${LRI}${clean}${PDI}` : clean;
+  const newRel = dir === "ltr" ? cleanRel + 1 : cleanRel;
+
+  return { text: text.slice(0, start) + newLine + text.slice(end), cursorPos: start + newRel };
 }

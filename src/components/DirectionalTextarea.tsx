@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "@/i18n";
-import { getLineBounds, isLineMarkedLtr, setLineDirection } from "@/lib/directionalText";
+import { isLineMarkedLtr, setLineDirection } from "@/lib/directionalText";
 import styles from "./DirectionalTextarea.module.scss";
 
 interface Props {
@@ -56,7 +56,7 @@ export function DirectionalTextarea({ value, onChange, className, placeholder, r
     onChange(result.text);
   }
 
-  const lineIsLtr = isLineMarkedLtr(value, getLineBounds(value, cursorPos));
+  const lineIsLtr = isLineMarkedLtr(value, cursorPos);
 
   return (
     <div className={styles.wrap}>
