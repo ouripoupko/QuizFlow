@@ -1,4 +1,5 @@
 import { AiGradingResultSchema } from "../../_shared/aiTypes.ts";
+import { isCreditExhausted } from "../../_shared/anthropicErrors.ts";
 import {
   type GradingInput,
   type GradingOutcome,
@@ -19,21 +20,6 @@ const DEFAULT_MODEL = "claude-sonnet-5";
 const BASE_MAX_TOKENS = 1024;
 const LEGACY_THINKING_MAX_TOKENS = 4096;
 const LEGACY_THINKING_BUDGET_TOKENS = 2048;
-
-// Anthropic reports an empty credit balance either as a 402 billing_error or
-// as a 400 invalid_request_error whose message says "credit balance is too
-// low" — match both.
-function isCreditExhausted(status: number, errBody: string): boolean {
-  if (status === 402) return true;
-  try {
-    const parsed = JSON.parse(errBody) as { error?: { type?: string; message?: string } };
-    if (parsed.error?.type === "billing_error") return true;
-    if (/credit balance/i.test(parsed.error?.message ?? "")) return true;
-  } catch {
-    // Non-JSON body — fall back to a plain text match.
-  }
-  return /credit balance/i.test(errBody);
-}
 
 function buildPrompt(input: GradingInput): string {
   const lines: string[] = [];

@@ -9,6 +9,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders } from "../_shared/cors.ts";
+import { isCreditExhausted } from "../_shared/anthropicErrors.ts";
 
 const RequestSchema = z.object({
   question_prompt: z.string().min(1).max(10_000),
@@ -67,7 +68,7 @@ Deno.serve(async (req: Request) => {
       .rpc("get_teacher_api_key_decrypted", { _teacher_id: user.id });
 
     if (kErr || !keyRows?.length) {
-      return err(400, "No AI provider key configured. Add your key in Settings.");
+      return expectedFailure("No AI provider key configured. Add your key in Settings.");
     }
 
     const { provider, api_key } = keyRows[0] as {
@@ -147,12 +148,28 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       const text = await res.text();
+      if (isCreditExhausted(res.status, text)) {
+        console.error("ask-ai: Anthropic credit exhausted:", text);
+        // Same flag grade-answer sets, so the control board banner agrees.
+        await supabase
+          .from("teacher_ai_keys")
+          .update({ credit_exhausted_at: new Date().toISOString() })
+          .eq("teacher_id", user.id);
+        return expectedFailure("AI provider credit exhausted");
+      }
       throw new Error(`Anthropic error ${res.status}: ${text}`);
     }
 
     const data = await res.json() as {
       content: Array<{ type: string; text: string }>;
     };
+
+    // The call went through, so any earlier out-of-credit flag is stale.
+    await supabase
+      .from("teacher_ai_keys")
+      .update({ credit_exhausted_at: null })
+      .eq("teacher_id", user.id)
+      .not("credit_exhausted_at", "is", null);
 
     const correctAnswer = data.content.find((c) => c.type === "text")?.text?.trim() ?? "";
 
@@ -164,6 +181,12 @@ Deno.serve(async (req: Request) => {
     return err(500, e instanceof Error ? e.message : "Unexpected error");
   }
 });
+
+// Teacher-setup outcomes (no key, out of credit) go back as 200 with
+// `{ error }`, as in grade-answer, so the browser doesn't log a failed request.
+function expectedFailure(message: string): Response {
+  return err(200, message);
+}
 
 function err(status: number, message: string): Response {
   return new Response(JSON.stringify({ error: message }), {

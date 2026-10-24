@@ -8,6 +8,13 @@ import { GradingInstructionEditor } from "./GradingInstructionEditor";
 import { ImageUploader } from "./ImageUploader";
 import styles from "./QuestionEditor.module.scss";
 
+// Known ask-ai reasons (raw English from the Edge Function, see
+// supabase/functions/ask-ai/index.ts) mapped to a localized message.
+const KNOWN_ASK_AI_ERRORS: Record<string, string> = {
+  "No AI provider key configured. Add your key in Settings.": t.questionEditor.aiNoKey,
+  "AI provider credit exhausted": t.questionEditor.aiCreditExhausted,
+};
+
 interface Props {
   question: Question;
   quizId: string;
@@ -95,6 +102,11 @@ export function QuestionEditor({
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
       });
       if (res.error) throw new Error(res.error.message);
+      const reason = (res.data as { error?: string }).error;
+      if (reason) {
+        setAiError(KNOWN_ASK_AI_ERRORS[reason] ?? reason);
+        return;
+      }
       setCorrectAnswer((res.data as { correctAnswer: string }).correctAnswer);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : t.common.error);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -366,6 +366,32 @@ export function QuizRuntimePage() {
     setGrading(false);
   };
 
+  // ── Prefill a retry with the failed answer ──────────────────────────────────
+  // After a "fail" (from the AI, or a teacher resolving "unsure"), the student
+  // usually needs a small fix, not a rewrite — so start the box from their
+  // last answer. Done once per failed attempt (tracked by key) so it never
+  // clobbers what they're typing; navigating away resets it.
+  const prefilledAttemptRef = useRef<string | null>(null);
+  const frontierQuestion = questions[currentPosition];
+  const frontierAttempts = frontierQuestion ? attemptsByQuestion[frontierQuestion.id] : undefined;
+  const frontierLatest = frontierAttempts?.[frontierAttempts.length - 1] ?? null;
+
+  useEffect(() => {
+    if (
+      flowMode !== "infinite_attempts" ||
+      grading ||
+      viewIndex !== currentPosition ||
+      !frontierQuestion ||
+      frontierLatest?.decision !== "fail"
+    ) {
+      return;
+    }
+    const key = `${frontierQuestion.id}:${frontierLatest.attemptNumber}`;
+    if (prefilledAttemptRef.current === key) return;
+    prefilledAttemptRef.current = key;
+    setAnswerText(frontierLatest.answerText);
+  }, [flowMode, grading, viewIndex, currentPosition, frontierQuestion, frontierLatest]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (sessionEnded) {
     return (
@@ -407,6 +433,7 @@ export function QuizRuntimePage() {
     if (viewIndex <= 0) return;
     setViewIndex((v) => v - 1);
     setAnswerText("");
+    prefilledAttemptRef.current = null;
     setGradeError(null);
   };
 
@@ -414,6 +441,7 @@ export function QuizRuntimePage() {
     if (!canGoForward) return;
     setViewIndex((v) => v + 1);
     setAnswerText("");
+    prefilledAttemptRef.current = null;
     setGradeError(null);
   };
 

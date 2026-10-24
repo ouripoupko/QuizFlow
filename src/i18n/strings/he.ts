@@ -165,6 +165,8 @@ export const he = {
     correctAnswerPlaceholder: "התשובה הנכונה לשאלה זו…",
     askAiButton: "שאל את ה-AI מה התשובה הנכונה",
     askingAi: "שואל…",
+    aiNoKey: "לא הוגדר מפתח AI. הוסיפו מפתח בעמוד ההגדרות.",
+    aiCreditExhausted: "נגמרה יתרת האשראי (טוקנים) בחשבון ספק ה-AI שלך. יש לטעון אשראי בחשבון הספק (למשל Anthropic Console → Billing) ולנסות שוב.",
     gradingLabel: "הנחיות ציון",
     imagesLabel: "תמונות",
     saveQuestion: "שמור שאלה",
