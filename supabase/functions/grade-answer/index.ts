@@ -20,6 +20,7 @@ import { z } from "npm:zod@3";
 import { corsHeaders } from "../_shared/cors.ts";
 import { AiGradingResultSchema } from "../_shared/aiTypes.ts";
 import { getProviderAdapter } from "./providers/index.ts";
+import { ProviderCreditExhaustedError } from "./providers/types.ts";
 
 const RequestSchema = z.object({
   participant_id: z.string().uuid(),
@@ -42,6 +43,8 @@ Deno.serve(async (req: Request) => {
   let model: string | undefined;
   let thinkingFamily: "none" | "adaptive" | "legacy" | undefined;
   let effort: string | null | undefined;
+  let supabase: ReturnType<typeof createClient> | undefined;
+  let teacherId: string | undefined;
 
   try {
     // ── 1. Parse & validate ───────────────────────────────────────────────────
@@ -49,7 +52,7 @@ Deno.serve(async (req: Request) => {
     const input = RequestSchema.parse(body);
 
     // ── 2. Service-role client (bypasses RLS; key never leaves the server) ───
-    const supabase = createClient(
+    supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
@@ -113,6 +116,7 @@ Deno.serve(async (req: Request) => {
       thinking_family: "none" | "adaptive" | "legacy";
       effort: string | null;
     };
+    teacherId = session.host_id;
     model = teacherModel;
     thinkingFamily = thinking_family;
     effort = teacherEffort;
@@ -172,6 +176,15 @@ Deno.serve(async (req: Request) => {
 
     const result = AiGradingResultSchema.parse(outcome.result);
 
+    // The call went through, so any earlier out-of-credit flag is stale
+    // (the teacher topped up) — clear it off the control board. A no-op
+    // unless the flag is actually set.
+    await supabase
+      .from("teacher_ai_keys")
+      .update({ credit_exhausted_at: null })
+      .eq("teacher_id", session.host_id)
+      .not("credit_exhausted_at", "is", null);
+
     // ── 7. Persist: rate-limit record + response row ─────────────────────────
     await supabase.from("grading_rate_calls").insert({
       participant_id: input.participant_id,
@@ -201,6 +214,18 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (e) {
+    if (e instanceof ProviderCreditExhaustedError) {
+      console.error("grade-answer:", e.message);
+      // Flag it for the teacher's control board; the student just gets a
+      // "tell your teacher" message (mapped client-side from this reason).
+      if (supabase && teacherId) {
+        await supabase
+          .from("teacher_ai_keys")
+          .update({ credit_exhausted_at: new Date().toISOString() })
+          .eq("teacher_id", teacherId);
+      }
+      return err(402, "AI provider credit exhausted", model, thinkingFamily, effort);
+    }
     const message = e instanceof Error ? e.message : "Unexpected error";
     return err(500, message, model, thinkingFamily, effort);
   }

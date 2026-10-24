@@ -40,6 +40,16 @@
   color: var(--color-text-muted);
 }
 
+.creditAlert {
+  margin-block: 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
 .hint {
   color: var(--color-text-muted);
   text-align: center;

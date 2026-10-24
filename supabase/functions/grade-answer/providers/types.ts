@@ -60,3 +60,16 @@ export interface GradingOutcome {
 export interface ProviderAdapter {
   grade(input: GradingInput, settings: GradingSettings): Promise<GradingOutcome>;
 }
+
+/**
+ * Thrown by an adapter when the provider rejects the call because the
+ * teacher's account has run out of credit. Distinct from other provider
+ * errors so grade-answer can tell the student to notify the teacher and
+ * flag it on the teacher's control board, instead of a generic failure.
+ */
+export class ProviderCreditExhaustedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProviderCreditExhaustedError";
+  }
+}

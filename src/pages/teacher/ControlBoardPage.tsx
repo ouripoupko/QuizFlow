@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
 import { useIsAdmin } from "@/auth/useIsAdmin";
+import { useAuthStore } from "@/store/authStore";
 import type {
   FlowMode,
   Question,
@@ -34,6 +35,7 @@ function deriveStatus(
 export function ControlBoardPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { isAdmin } = useIsAdmin();
+  const userId = useAuthStore((s) => s.user?.id);
 
   const [quizId, setQuizId] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState("");
@@ -41,6 +43,9 @@ export function ControlBoardPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [displays, setDisplays] = useState<ParticipantDisplay[]>([]);
   const [loading, setLoading] = useState(true);
+  // Set by grade-answer when the teacher's AI provider account runs out of
+  // credit, cleared on the next successful grading call.
+  const [creditExhausted, setCreditExhausted] = useState(false);
 
   // Refs for use inside realtime callbacks (avoid stale closures)
   const questionsRef = useRef<Question[]>([]);
@@ -133,6 +138,37 @@ export function ControlBoardPage() {
       setLoading(false);
     })();
   }, [sessionId]);
+
+  // ── AI credit status (own key row; RLS limits it to this teacher) ────────
+  useEffect(() => {
+    if (!userId) return;
+
+    void supabase
+      .from("teacher_ai_keys")
+      .select("credit_exhausted_at")
+      .eq("teacher_id", userId)
+      .maybeSingle()
+      .then(({ data }) => setCreditExhausted(!!data?.credit_exhausted_at));
+
+    const channel = supabase
+      .channel(`ai-credit-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "teacher_ai_keys",
+          filter: `teacher_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new as { credit_exhausted_at?: string | null };
+          setCreditExhausted(!!row?.credit_exhausted_at);
+        },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [userId]);
 
   // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -315,6 +351,12 @@ export function ControlBoardPage() {
           </span>
         </div>
       </div>
+
+      {creditExhausted && (
+        <p className={styles.creditAlert} role="alert">
+          {t.controlBoard.aiCreditExhausted}
+        </p>
+      )}
 
       {loading && <p className={styles.hint}>{t.common.loading}</p>}
 

@@ -59,6 +59,7 @@ async function loadImagesByQuestion(questionIds: string[]): Promise<ImagesByQues
 // Anything unrecognized falls back to the generic error string.
 const KNOWN_GRADE_ERRORS: Record<string, string> = {
   "Teacher has no AI provider key configured": t.studentRuntime.noTeacherKey,
+  "AI provider credit exhausted": t.studentRuntime.aiCreditExhausted,
 };
 
 // Edge Function failures surface here as a FunctionsHttpError with the JSON
