@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
       .rpc("get_teacher_api_key_decrypted", { _teacher_id: session.host_id });
 
     if (kErr || !keyRows?.length) {
-      return err(400, "Teacher has no AI provider key configured");
+      return expectedFailure("Teacher has no AI provider key configured");
     }
 
     const {
@@ -224,7 +224,7 @@ Deno.serve(async (req: Request) => {
           .update({ credit_exhausted_at: new Date().toISOString() })
           .eq("teacher_id", teacherId);
       }
-      return err(402, "AI provider credit exhausted", model, thinkingFamily, effort);
+      return expectedFailure("AI provider credit exhausted", model, thinkingFamily, effort);
     }
     const message = e instanceof Error ? e.message : "Unexpected error";
     return err(500, message, model, thinkingFamily, effort);
@@ -241,6 +241,19 @@ function debugHeaders(
   if (thinkingFamily) headers["x-thinking-used"] = thinkingFamily;
   if (effort) headers["x-effort-used"] = effort;
   return headers;
+}
+
+// For outcomes that are the teacher's setup, not a server fault (no key, out
+// of credit): returned as 200 with `{ error }` so the browser doesn't log a
+// failed request on every student submission. The client maps the reason to
+// a "tell your teacher" message, same as it would for an error status.
+function expectedFailure(
+  message: string,
+  model?: string,
+  thinkingFamily?: "none" | "adaptive" | "legacy",
+  effort?: string | null,
+): Response {
+  return err(200, message, model, thinkingFamily, effort);
 }
 
 function err(
