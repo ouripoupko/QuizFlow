@@ -48,17 +48,23 @@ export function App() {
   //    Google sign-in, when the page itself loaded without it) switches to it;
   //  - none there (in-app links drop it) gets the current one added, so
   //    whatever URL a teacher copies opens in the same language.
+  //
+  // Reads and writes window.location directly rather than navigating: a
+  // router navigation here would race a <Navigate> redirect issued in the
+  // same render (e.g. "/" → "/my-quizzes") and undo it. The router doesn't
+  // use ?lang=, so updating the address in place (keeping its history
+  // state) is invisible to it.
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const fromUrl = params.get(LANG_PARAM);
+    const url = new URL(window.location.href);
+    const fromUrl = url.searchParams.get(LANG_PARAM);
     if (fromUrl === activeLocale) return;
     if (isLocale(fromUrl)) {
       switchLocale(fromUrl);
       return;
     }
-    params.set(LANG_PARAM, activeLocale);
-    navigate({ pathname: location.pathname, search: `?${params}`, hash: location.hash }, { replace: true });
-  }, [location.pathname, location.search, location.hash, navigate]);
+    url.searchParams.set(LANG_PARAM, activeLocale);
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, [location]);
 
   // After Google OAuth redirect, Supabase sends the user back to the app root.
   // If we saved a returnTo path (set by ProtectedRoute), navigate there.
