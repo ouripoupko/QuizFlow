@@ -1,11 +1,19 @@
 import { supabase } from "@/lib/supabase";
-import type { FlowMode, Question, Quiz } from "@/types/domain";
+import type { FlowMode, Question, QuestionPart, Quiz } from "@/types/domain";
 
 // Portable quiz format — only fields that make sense on a different account
 // are included (no ids, ownership, status, timestamps, or topic placement;
 // those are either regenerated or reset to their defaults on import).
+//
+// Version history — every older version must keep importing unchanged:
+//   1: original format.
+//   2: adds the optional `parts` array per question (multi-part questions).
+//      A version-1 file simply has no `parts`, i.e. every question is a
+//      question without parts.
+//   3: adds the optional `allow_answer_image` flag on questions and parts.
+//      Absent in older files, meaning "no".
 const EXPORT_FORMAT = "quizflow-quiz";
-const EXPORT_FORMAT_VERSION = 1;
+const EXPORT_FORMAT_VERSION = 3;
 
 interface QuizExportImage {
   position: number;
@@ -14,17 +22,29 @@ interface QuizExportImage {
   data: string;
 }
 
+interface QuizExportPart {
+  position: number;
+  prompt: string;
+  correct_answer: string | null;
+  /** Absent before version 3. */
+  allow_answer_image?: boolean;
+}
+
 interface QuizExportQuestion {
   position: number;
   prompt: string;
   correct_answer: string | null;
   grading_instructions: string;
   images: QuizExportImage[];
+  /** Absent before version 3. */
+  allow_answer_image?: boolean;
+  /** Absent in version-1 files; empty for a question without parts. */
+  parts?: QuizExportPart[];
 }
 
 interface QuizExportFile {
   format: typeof EXPORT_FORMAT;
-  formatVersion: typeof EXPORT_FORMAT_VERSION;
+  formatVersion: 1 | 2 | typeof EXPORT_FORMAT_VERSION;
   quiz: {
     title: string;
     description: string;
@@ -81,12 +101,29 @@ export async function exportQuizToFile(quiz: Quiz, questions: Question[]): Promi
         });
       }
 
+      const { data: partRows } = await supabase
+        .from("question_parts")
+        .select("position, prompt, correct_answer, allow_answer_image")
+        .eq("question_id", q.id)
+        .order("position", { ascending: true });
+      const parts: QuizExportPart[] = ((partRows ?? []) as Pick<
+        QuestionPart,
+        "position" | "prompt" | "correct_answer" | "allow_answer_image"
+      >[]).map((p) => ({
+        position: p.position,
+        prompt: p.prompt,
+        correct_answer: p.correct_answer,
+        allow_answer_image: p.allow_answer_image,
+      }));
+
       return {
         position: q.position,
         prompt: q.prompt,
         correct_answer: q.correct_answer,
         grading_instructions: q.grading_instructions,
         images,
+        allow_answer_image: q.allow_answer_image,
+        parts,
       };
     }),
   );
@@ -116,6 +153,11 @@ function isValidExportFile(value: unknown): value is QuizExportFile {
   const v = value as Record<string, unknown>;
   if (v.format !== EXPORT_FORMAT || typeof v.quiz !== "object" || v.quiz === null) return false;
   if (!Array.isArray(v.questions)) return false;
+  // `parts` is optional (absent before version 2), but must be a list if present.
+  if (v.questions.some((q) =>
+    typeof q === "object" && q !== null && "parts" in q
+    && !Array.isArray((q as Record<string, unknown>).parts)
+  )) return false;
   const quiz = v.quiz as Record<string, unknown>;
   return typeof quiz.title === "string" && typeof quiz.description === "string";
 }
@@ -162,13 +204,29 @@ export async function importQuizFromFile(file: QuizExportFile, creatorId: string
         prompt: q.prompt,
         correct_answer: q.correct_answer,
         grading_instructions: q.grading_instructions,
+        allow_answer_image: q.allow_answer_image ?? false,
       })
       .select("id")
       .single();
     if (qErr) throw qErr;
     const questionId = questionRow.id as string;
 
-    for (const img of q.images) {
+    // Same as questions: inserted one by one in original order, `position`
+    // omitted — the append trigger reproduces the sequence.
+    const sortedParts = [...(q.parts ?? [])].sort((a, b) => a.position - b.position);
+    for (const part of sortedParts) {
+      const { error: partErr } = await supabase.from("question_parts").insert({
+        question_id: questionId,
+        prompt: part.prompt,
+        correct_answer: part.correct_answer,
+        allow_answer_image: part.allow_answer_image ?? false,
+      });
+      if (partErr) throw partErr;
+    }
+
+    // In original order, `position` omitted — the append trigger reproduces it.
+    const sortedImages = [...q.images].sort((a, b) => a.position - b.position);
+    for (const img of sortedImages) {
       const ext = EXTENSION_BY_MEDIA_TYPE[img.media_type] ?? "jpg";
       const path = `${quizId}/${questionId}/${crypto.randomUUID()}.${ext}`;
       const bytes = base64ToBytes(img.data);
@@ -180,7 +238,6 @@ export async function importQuizFromFile(file: QuizExportFile, creatorId: string
       const { error: imgErr } = await supabase.from("question_images").insert({
         question_id: questionId,
         storage_path: path,
-        position: img.position,
       });
       if (imgErr) throw imgErr;
     }

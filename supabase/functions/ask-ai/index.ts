@@ -10,36 +10,27 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isCreditExhausted } from "../_shared/anthropicErrors.ts";
+import {
+  contentWithNumberedImages,
+  type ImageBlock,
+  imageNumberingNote,
+  loadQuestionImageBlocks,
+} from "../_shared/questionImages.ts";
 
 const RequestSchema = z.object({
   question_prompt: z.string().min(1).max(10_000),
   grading_instructions: z.string().max(2_000),
   question_id: z.string().uuid().optional(),
+  // Set when asking for one part's answer on a multi-part question; then
+  // `question_prompt` is the shared scenario. The editor sends its current
+  // (possibly unsaved) text, so these come from the request, not the DB.
+  part_number: z.number().int().min(1).optional(),
+  part_prompt: z.string().min(1).max(10_000).optional(),
+  previous_part_prompts: z.array(z.string().max(10_000)).max(50).optional(),
 });
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-4-8";
-
-// Chunked to avoid blowing the call stack on String.fromCharCode(...bytes)
-// for larger images (bucket allows up to 10 MB).
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-function mediaTypeFor(path: string, blobType: string): string {
-  if (blobType.startsWith("image/")) return blobType;
-  const ext = path.split(".").pop()?.toLowerCase();
-  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
-  if (ext === "png") return "image/png";
-  if (ext === "gif") return "image/gif";
-  if (ext === "webp") return "image/webp";
-  return "image/jpeg";
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -80,10 +71,9 @@ Deno.serve(async (req: Request) => {
       return err(400, `Provider "${provider}" is not yet supported for the authoring assistant.`);
     }
 
-    // Attach the question's own images, if any — fetched server-side (not
-    // via signed URL) so the teacher's key never has to leave the server and
-    // we don't depend on Anthropic being able to reach a Supabase URL.
-    const imageBlocks: Array<{ type: "image"; source: { type: "base64"; media_type: string; data: string } }> = [];
+    // Attach the question's own images, if any (numbered, see
+    // _shared/questionImages.ts).
+    let imageBlocks: ImageBlock[] = [];
     if (input.question_id) {
       const { data: question } = await supabase
         .from("questions")
@@ -94,36 +84,32 @@ Deno.serve(async (req: Request) => {
         ?.quizzes.creator_id === user.id;
       if (!owned) return err(403, "You do not own this question");
 
-      const { data: images } = await supabase
-        .from("question_images")
-        .select("storage_path")
-        .eq("question_id", input.question_id)
-        .order("position", { ascending: true });
-
-      for (const img of (images ?? []) as { storage_path: string }[]) {
-        const { data: blob } = await supabase.storage
-          .from("question-images")
-          .download(img.storage_path);
-        if (!blob) continue;
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        imageBlocks.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: mediaTypeFor(img.storage_path, blob.type),
-            data: toBase64(bytes),
-          },
-        });
-      }
+      imageBlocks = await loadQuestionImageBlocks(supabase, input.question_id);
     }
 
-    const prompt = [
-      `שאלה:\n${input.question_prompt}`,
-      input.grading_instructions
-        ? `הנחיות ציון:\n${input.grading_instructions}`
-        : "",
-      "כתוב את התשובה הנכונה לשאלה זו. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.",
-    ]
+    const partNumber = input.part_number ?? 1;
+    const prompt = (input.part_prompt
+      ? [
+        `שאלה (תרחיש פתיחה משותף לכל הסעיפים):\n${input.question_prompt}`,
+        imageNumberingNote(imageBlocks.length),
+        (input.previous_part_prompts ?? []).length > 0
+          ? `סעיפים קודמים (להקשר בלבד):\n\n` +
+            (input.previous_part_prompts ?? []).map((p, i) => `סעיף ${i + 1}:\n${p}`).join("\n\n")
+          : "",
+        `סעיף ${partNumber}:\n${input.part_prompt}`,
+        input.grading_instructions
+          ? `הנחיות ציון:\n${input.grading_instructions}`
+          : "",
+        `כתוב את התשובה הנכונה לסעיף ${partNumber} בלבד. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.`,
+      ]
+      : [
+        `שאלה:\n${input.question_prompt}`,
+        imageNumberingNote(imageBlocks.length),
+        input.grading_instructions
+          ? `הנחיות ציון:\n${input.grading_instructions}`
+          : "",
+        "כתוב את התשובה הנכונה לשאלה זו. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.",
+      ])
       .filter(Boolean)
       .join("\n\n");
 
@@ -139,9 +125,7 @@ Deno.serve(async (req: Request) => {
         max_tokens: 512,
         messages: [{
           role: "user",
-          content: imageBlocks.length > 0
-            ? [...imageBlocks, { type: "text", text: prompt }]
-            : prompt,
+          content: contentWithNumberedImages(imageBlocks, prompt),
         }],
       }),
     });

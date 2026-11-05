@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { t } from "@/i18n";
+import { activeLocale, t } from "@/i18n";
 import type { TopicNode } from "@/types/domain";
 import { UNSORTED_TOPIC_ID } from "@/types/domain";
 import styles from "./TopicTree.module.scss";
@@ -25,7 +25,7 @@ function buildTree(nodes: TopicNode[]): TreeNode[] {
     arr.sort((a, b) => {
       if (a.id === UNSORTED_TOPIC_ID) return 1;
       if (b.id === UNSORTED_TOPIC_ID) return -1;
-      return a.name.localeCompare(b.name, "he");
+      return a.name.localeCompare(b.name, activeLocale);
     });
 
   const sortRecursive = (nodes: TreeNode[]) => {
@@ -74,7 +74,7 @@ export function TopicTree({ nodes, selectedId, onSelect }: Props) {
             className={styles.chevron}
             disabled={!hasChildren}
             onClick={() => toggle(node.id)}
-            aria-label={isExpanded ? "כווץ" : "הרחב"}
+            aria-label={isExpanded ? t.topicTree.collapse : t.topicTree.expand}
           >
             {hasChildren ? (isExpanded ? "▾" : "▸") : "·"}
           </button>

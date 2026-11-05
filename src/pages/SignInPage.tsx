@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signInWithProvider } from "@/auth/auth";
 import { oauthProviders } from "@/auth/providers";
 import { t } from "@/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import styles from "./SignInPage.module.scss";
 
 export function SignInPage() {
@@ -26,6 +27,7 @@ export function SignInPage() {
       <section className={styles.card}>
         <h1 className={styles.title}>{t.auth.signInTitle}</h1>
         <p className={styles.tagline}>{t.app.tagline}</p>
+        <LanguageSwitcher />
 
         {oauthProviders.map((provider) => (
           <button

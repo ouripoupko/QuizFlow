@@ -76,15 +76,12 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
           .upload(path, file, { upsert: false });
         if (upErr) throw upErr;
 
-        const { count } = await supabase
-          .from("question_images")
-          .select("*", { count: "exact", head: true })
-          .eq("question_id", questionId);
-
+        // `position` is intentionally omitted — a DB trigger appends the
+        // image at the end of the question's list (see supabase/migrations/
+        // 20261102120000_question_parts.sql).
         const { error: dbErr } = await supabase.from("question_images").insert({
           question_id: questionId,
           storage_path: path,
-          position: count ?? 0,
         });
         if (dbErr) throw dbErr;
 
@@ -148,7 +145,7 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
       onMouseEnter={() => { hoveredRef.current = true; }}
       onMouseLeave={() => { hoveredRef.current = false; }}
     >
-      {images.map((img) => (
+      {images.map((img, idx) => (
         <div
           key={img.id}
           className={styles.thumb}
@@ -158,6 +155,9 @@ export function ImageUploader({ quizId, questionId, locked = false }: Props) {
           <div className={styles.imgWrap}>
             <img src={img.signedUrl} alt="" className={styles.img} />
           </div>
+          {/* Display-order number — the same one students and the AI see, so
+              prompts and parts can refer to "image 2". */}
+          <span className={styles.imageNumber}>{t.imageUploader.imageN} {idx + 1}</span>
           {!locked && (
             <button
               type="button"

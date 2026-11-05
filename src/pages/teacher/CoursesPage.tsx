@@ -74,7 +74,7 @@ export function CoursesPage() {
           <li key={course.id} className={styles.card}>
             <div className={styles.cardMain}>
               <h2 className={styles.courseName}>
-                {course.title || <em className={styles.untitled}>(ללא שם)</em>}
+                {course.title || <em className={styles.untitled}>{t.common.unnamed}</em>}
               </h2>
               {course.description && (
                 <p className={styles.desc}>{course.description}</p>

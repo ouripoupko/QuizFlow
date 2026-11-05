@@ -3,6 +3,7 @@ import { signOut } from "@/auth/auth";
 import { useIsAdmin } from "@/auth/useIsAdmin";
 import { useIsTeacher } from "@/auth/useIsTeacher";
 import { t } from "@/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuthStore } from "@/store/authStore";
 import styles from "./AppLayout.module.scss";
 
@@ -25,6 +26,7 @@ export function AppLayout() {
           <span className={styles.signedInAs}>
             {t.auth.signedInAs} <strong>{user?.email}</strong>
           </span>
+          <LanguageSwitcher />
           <button
             type="button"
             className={styles.logoutBtn}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { t } from "@/i18n";
+import { activeLocale, t } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
 import type { TopicNode } from "@/types/domain";
 import styles from "./ProposeTopicForm.module.scss";
@@ -55,7 +55,7 @@ export function ProposeTopicForm({ approvedNodes, onClose }: Props) {
           <option value="">{t.topicTree.proposeRoot}</option>
           {approvedNodes
             .filter((n) => !n.is_system)
-            .sort((a, b) => a.name.localeCompare(b.name, "he"))
+            .sort((a, b) => a.name.localeCompare(b.name, activeLocale))
             .map((n) => (
               <option key={n.id} value={n.id}>
                 {n.name}

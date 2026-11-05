@@ -200,3 +200,54 @@
   color: var(--color-danger);
   font-size: 0.875rem;
 }
+
+.partsCount {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.partCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.partHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  .deleteBtn {
+    margin-inline-start: auto;
+  }
+}
+
+.partNum {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.addPartBtn {
+  align-self: flex-start;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  color: var(--color-text);
+  cursor: pointer;
+
+  input {
+    margin: 0;
+  }
+}

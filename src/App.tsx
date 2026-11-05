@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { TeacherRoute } from "@/components/TeacherRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { SignInPage } from "@/pages/SignInPage";
-import { t } from "@/i18n";
+import { activeLocale, isLocale, LANG_PARAM, switchLocale, t } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
 
 // Route-level code splitting: everything past the sign-in gate is its own
@@ -41,6 +41,24 @@ const CourseEditorPage = lazy(() =>
 export function App() {
   const status = useAuthStore((s) => s.status);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // The address bar's ?lang= is authoritative:
+  //  - a different language there (e.g. the saved return-to link after the
+  //    Google sign-in, when the page itself loaded without it) switches to it;
+  //  - none there (in-app links drop it) gets the current one added, so
+  //    whatever URL a teacher copies opens in the same language.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.get(LANG_PARAM);
+    if (fromUrl === activeLocale) return;
+    if (isLocale(fromUrl)) {
+      switchLocale(fromUrl);
+      return;
+    }
+    params.set(LANG_PARAM, activeLocale);
+    navigate({ pathname: location.pathname, search: `?${params}`, hash: location.hash }, { replace: true });
+  }, [location.pathname, location.search, location.hash, navigate]);
 
   // After Google OAuth redirect, Supabase sends the user back to the app root.
   // If we saved a returnTo path (set by ProtectedRoute), navigate there.

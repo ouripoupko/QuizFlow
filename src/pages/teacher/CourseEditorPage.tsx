@@ -198,7 +198,7 @@ export function CourseEditorPage() {
           {courseQuizzes.map((cq, idx) => (
             <li key={cq.quiz_id} className={styles.quizRow}>
               <span className={styles.quizTitle}>
-                {cq.quizzes?.title || "(ללא כותרת)"}
+                {cq.quizzes?.title || t.common.untitled}
               </span>
               <div className={styles.quizActions}>
                 <button
@@ -245,7 +245,7 @@ export function CourseEditorPage() {
             <option value="">{t.courseEditor.addQuizPlaceholder}</option>
             {addableQuizzes.map((q) => (
               <option key={q.id} value={q.id}>
-                {q.title || "(ללא כותרת)"}
+                {q.title || t.common.untitled}
               </option>
             ))}
           </select>

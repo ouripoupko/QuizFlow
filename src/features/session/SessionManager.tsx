@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { t } from "@/i18n";
+import { t, withLang } from "@/i18n";
 import { useAuthStore } from "@/store/authStore";
 import type { QuizSession } from "@/types/domain";
 import { JoinQrCode } from "./JoinQrCode";
@@ -71,8 +71,10 @@ export function SessionManager({ quizId, quizPublished }: Props) {
     },
   });
 
+  // Carries the teacher's current language (?lang=…), so students open the
+  // quiz in it — and the AI writes their feedback in it.
   const joinUrl = session
-    ? `${window.location.origin}${import.meta.env.BASE_URL}join/${session.join_token}`
+    ? withLang(`${window.location.origin}${import.meta.env.BASE_URL}join/${session.join_token}`)
     : "";
 
   const copyLink = async () => {

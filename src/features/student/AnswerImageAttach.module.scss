@@ -1,0 +1,57 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.zone {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.attached {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.attachedActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.linkBtn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-danger);
+}

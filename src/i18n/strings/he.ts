@@ -1,12 +1,11 @@
 /**
- * Hebrew UI strings — the single source of truth for app text.
+ * Hebrew UI strings — the source of truth for app text, and the default
+ * language. English (en.ts) and Arabic (ar.ts) have the same shape.
  *
- * Spec §11: the app ships in Hebrew only, but NO Hebrew text may be hard-coded
- * inside components. Everything user-facing goes through here so an `en.ts` of
- * the same shape can be dropped in later with zero component changes.
- *
- * This object's type becomes the `Strings` contract (see ../index.ts), so any
- * future locale file is checked for completeness at compile time.
+ * NO user-facing text may be hard-coded inside components; everything goes
+ * through here. This object's type becomes the `Strings` contract (see
+ * ../index.ts), so the other locale files are checked for completeness at
+ * compile time — a key added here must be added there too.
  *
  * Do NOT translate teacher/student content (quizzes, questions, feedback) — that
  * is user content, not app chrome.
@@ -44,6 +43,9 @@ export const he = {
     confirm: "אישור",
     delete: "מחיקה",
     error: "אירעה שגיאה",
+    untitled: "(ללא כותרת)",
+    unnamed: "(ללא שם)",
+    languageLabel: "שפה",
   },
   admin: {
     pageTitle: "ניהול",
@@ -111,7 +113,7 @@ export const he = {
     draft: "טיוטה",
     published: "פורסם",
     questionsCount: "שאלות",
-    edit: "עריכה",
+    edit: "פתיחה",
     deleteQuiz: "מחק שאלון",
     deleteConfirm: "למחוק את השאלון? פעולה זו לא ניתנת לביטול.",
     creating: "יוצר…",
@@ -157,6 +159,7 @@ export const he = {
   },
   questionEditor: {
     promptLabel: "טקסט השאלה",
+    scenarioLabel: "תרחיש פתיחה (משותף לכל הסעיפים)",
     promptPlaceholder: "כתוב את השאלה כאן…",
     codeMode: "קוד",
     textMode: "טקסט",
@@ -175,6 +178,15 @@ export const he = {
     moveUp: "↑",
     moveDown: "↓",
     unsavedChanges: "יש שינויים שלא נשמרו",
+    partsLabel: "סעיפים",
+    partsHint: "(אופציונלי — לשאלה בת כמה סעיפים. בלי סעיפים זו שאלה רגילה)",
+    partN: "סעיף",
+    partPromptPlaceholder: "כתוב את הסעיף כאן…",
+    addPart: "+ הוסף סעיף",
+    deletePart: "מחק סעיף",
+    deletePartConfirm: "למחוק את הסעיף? תשובות תלמידים לסעיף זה יימחקו בעת השמירה.",
+    partsCount: "סעיפים",
+    allowAnswerImage: "אפשר לתלמיד לצרף תמונה לתשובה",
   },
   gradingTemplates: {
     selectPlaceholder: "בחר תבנית…",
@@ -185,12 +197,37 @@ export const he = {
     templateTitlePlaceholder: "שם התבנית",
     saveTemplateButton: "שמור תבנית",
     cancelSave: "ביטול",
+    // The built-in templates (spec §5.1). Inserted into a question as text,
+    // so a teacher gets them in the language they're working in.
+    base: {
+      factual: {
+        title: "התאמה עובדתית",
+        body: "אשר אם התשובה נכונה עובדתית. התעלם מניסוח, איות וסדר מילים.",
+      },
+      conceptual: {
+        title: "הבנה רעיונית",
+        body: "אשר אם התלמיד הביע את הרעיון הנכון, גם בניסוח שונה. דחה רק אם חסר מרכיב מהותי.",
+      },
+      reasoning: {
+        title: "נימוק והוכחה",
+        body: "בדוק את דרך ההגעה לתשובה, לא רק את התוצאה הסופית. דרוש צעדים תקפים.",
+      },
+      code: {
+        title: "בדיקת קוד",
+        body: "בדוק אם הקוד פותר את הבעיה בצורה לוגית נכונה. התעלם מסגנון; ציין מקרי-קצה שנכשלים.",
+      },
+      free: {
+        title: "חופשי",
+        body: "",
+      },
+    },
   },
   imageUploader: {
     prompt: "גרור תמונה, הדבק (Ctrl+V) או",
     chooseFile: "בחר קובץ",
     uploading: "מעלה…",
     deleteImage: "מחק",
+    imageN: "תמונה",
   },
   directionalText: {
     ltrLabel: "כיוון השורה הנוכחית: משמאל לימין",
@@ -243,7 +280,17 @@ export const he = {
     aiCreditExhausted: "לא ניתן לבדוק תשובות כרגע: נגמרה יתרת האשראי בחשבון הבינה המלאכותית של המורה. אנא עדכנו את המורה.",
     previousQuestion: "לשאלה הקודמת",
     nextQuestion: "לשאלה הבאה",
+    nextQuestionButton: "לשאלה הבאה ←",
+    finishButton: "לסיום ←",
     yourAnswerLabel: "התשובה שלך:",
+    attachImageHint: "📎 צירוף תמונה — הדבקה (Ctrl+V), בחירת קובץ או צילום",
+    imageUploading: "מעלה תמונה…",
+    imageUploadFailed: "העלאת התמונה נכשלה. נסו שוב.",
+    replaceImage: "החלפה",
+    removeImage: "הסרה",
+    answerImageAlt: "תמונה שצורפה לתשובה",
+    partN: "סעיף",
+    imageN: "תמונה",
     feedbackLabel: "משוב:",
     noAnswerSubmitted: "לא הוגשה תשובה לשאלה זו.",
     sessionEnded: "השיעור הסתיים.",
@@ -294,6 +341,8 @@ export const he = {
     proposing: "מגיש…",
     proposeSuccess: "ההצעה הוגשה לבדיקת מנהל.",
     cancel: "ביטול",
+    expand: "הרחב",
+    collapse: "כווץ",
   },
   adminTopics: {
     pageTitle: "אישור הצעות נושא",
@@ -305,13 +354,16 @@ export const he = {
     reject: "דחה",
     approving: "מאשר…",
     rejecting: "דוחה…",
+    deleteTopicConfirm: "למחוק את הנושא \"{name}\"? שאלונים יועברו לגלובלית.",
   },
   controlBoard: {
     pageTitle: "לוח בקרה",
-    backToEditor: "← עריכה",
+    backToEditor: "← חזרה לשאלון",
     openBoard: "פתח לוח בקרה",
     noParticipants: "אין תלמידים מחוברים עדיין.",
     questionN: "שאלה",
+    partN: "סעיף",
+    imageN: "תמונה",
     of: "מתוך",
     statusAnswering: "משיב…",
     statusWaiting: "ממתין לאישור",
@@ -322,14 +374,40 @@ export const he = {
     reject: "✗ דחה",
     resolving: "מעבד…",
     answerLabel: "תשובה:",
+    aiReasoningLabel: "נימוק ה-AI (למורה בלבד):",
+    answerImageAlt: "תמונה שהתלמיד צירף לתשובה",
+    aiReplyBroken: "תשובת ה-AI הגיעה פגומה ולא ניתן היה לקרוא אותה, ולכן התשובה סומנה כממתינה לאישור. יש לבדוק את תשובת התלמיד ולהחליט בעצמך.",
+    aiReplyBrokenShort: "⚠ תשובת ה-AI הגיעה פגומה — לא נבדקה",
     answersLabel: "תשובות:",
     answerColumnHeader: "תשובה",
     aiReplyColumnHeader: "תגובת AI",
     statusColumnHeader: "סטטוס",
+    columnStudent: "תלמיד/ה",
+    columnProgress: "התקדמות",
+    tokens: "טוקנים",
+    estimatedCost: "עלות משוערת:",
+    costUnknownModel: "לא ידועה (מודל לא מוכר)",
+    priceListDate: "לפי מחירון",
+    usageTooltip: "בדיקות AI בשיעור זה:",
+    usageInput: "קלט:",
+    usageOutput: "פלט:",
+    exportClass: "ייצוא הכיתה (CSV)",
+    exporting: "מייצא…",
+    exportFailed: "הייצוא נכשל. נסו שוב.",
+    exportStudent: "שם התלמיד/ה",
+    exportAnswered: "שאלות שנענו",
+    exportPassed: "שאלות שעברו",
+    exportAttempts: "סה\"כ ניסיונות",
+    exportImage: "תמונה",
+    exportAttempt: "ניסיון",
+    expandAll: "הרחב הכל",
+    collapseAll: "כווץ הכל",
     decisionPass: "התקבלה",
     decisionFail: "נדחתה",
     decisionUnsure: "ממתינה לאישור",
     adminRawDataLabel: "נתוני הבקשה שנשלחה ל-AI (מנהל בלבד)",
+    adminResponseMetaLabel: "נתוני התשובה מה-AI: סיבת עצירה ושימוש בטוקנים (מנהל בלבד)",
+    adminReasoningLabel: "נימוק ה-AI (מנהל בלבד)",
     remove: "הסר תלמיד",
     removing: "מסיר…",
     removeConfirm: "להסיר את התלמיד מהשאלון? כל התשובות שלו יימחקו וזה כאילו לא התחיל.",

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { t } from "@/i18n";
+import { format, t } from "@/i18n";
 import type { TopicNode } from "@/types/domain";
 import styles from "./TopicApprovals.module.scss";
 
@@ -107,7 +107,7 @@ export function TopicApprovals() {
                   className="btn"
                   disabled={isBusy(node.id)}
                   onClick={() => {
-                    if (window.confirm(`למחוק את הנושא "${node.name}"? שאלונים יועברו לגלובלית.`)) {
+                    if (window.confirm(format(t.adminTopics.deleteTopicConfirm, { name: node.name }))) {
                       reject.mutate(node.id);
                     }
                   }}

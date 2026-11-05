@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { t } from "@/i18n";
+import { activeLocale, t } from "@/i18n";
 import styles from "./CourseDashboard.module.scss";
 
 interface DashboardRow {
@@ -56,7 +56,7 @@ export function CourseDashboard({ courseId }: Props) {
     ...new Map(
       rows.map((r) => [r.student_id, r.student_name]),
     ).entries(),
-  ].sort((a, b) => a[1].localeCompare(b[1], "he"));
+  ].sort((a, b) => a[1].localeCompare(b[1], activeLocale));
 
   // Lookup: `quizId|studentId` → row
   const lookup = new Map(

@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { t } from "@/i18n";
+import { activeLocale, t } from "@/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { DirectionalTextarea } from "@/components/DirectionalTextarea";
+import { AnswerImageThumb } from "@/components/AnswerImageThumb";
+import { AnswerImageAttach } from "@/features/student/AnswerImageAttach";
 import { useAuthStore } from "@/store/authStore";
 import type {
   AiGradingResult,
@@ -11,6 +14,7 @@ import type {
   GradingDecision,
   Question,
   QuestionImage,
+  QuestionPart,
   Response as DbResponse,
   SessionParticipant,
 } from "@/types/domain";
@@ -19,12 +23,21 @@ import styles from "./QuizRuntimePage.module.scss";
 interface Attempt {
   attemptNumber: number;
   answerText: string;
+  /** Path in the answer-images bucket, when the student attached an image. */
+  imagePath: string | null;
   decision: GradingDecision | null;
   studentFeedback: string | null;
 }
 
-type AttemptsByQuestion = Record<string, Attempt[]>;
+// Keyed by "step": a part's id on a multi-part question, the question's id
+// on a question without parts (part ids and question ids never collide).
+type AttemptsByStep = Record<string, Attempt[]>;
 type ImagesByQuestion = Record<string, string[]>;
+type PartsByQuestion = Record<string, QuestionPart[]>;
+
+function stepKey(questionId: string, partId: string | null | undefined): string {
+  return partId ?? questionId;
+}
 
 // Signed URLs (bucket is private — see supabase/migrations/..._storage.sql)
 // fetched once per quiz load; batched into a single storage call rather than
@@ -50,6 +63,20 @@ async function loadImagesByQuestion(questionIds: string[]): Promise<ImagesByQues
     const url = img.storage_path ? byPath.get(img.storage_path) : undefined;
     if (!url) continue;
     (byQuestion[img.question_id] ??= []).push(url);
+  }
+  return byQuestion;
+}
+
+async function loadPartsByQuestion(questionIds: string[]): Promise<PartsByQuestion> {
+  if (questionIds.length === 0) return {};
+  const { data } = await supabase
+    .from("question_parts")
+    .select("*")
+    .in("question_id", questionIds)
+    .order("position", { ascending: true });
+  const byQuestion: PartsByQuestion = {};
+  for (const part of (data ?? []) as QuestionPart[]) {
+    (byQuestion[part.question_id] ??= []).push(part);
   }
   return byQuestion;
 }
@@ -90,22 +117,28 @@ export function QuizRuntimePage() {
   const [quizTitle, setQuizTitle] = useState("");
   const [flowMode, setFlowMode] = useState<FlowMode>("infinite_attempts");
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [partsByQuestion, setPartsByQuestion] = useState<PartsByQuestion>({});
   const [participantId, setParticipantId] = useState<string | null>(null);
 
   // `currentPosition` is the server-tracked frontier: it advances the instant
   // a question is resolved (AI pass, any single_attempt result, or a teacher
   // action), exactly like before — so a student who leaves and comes back
   // resumes at the next question, and the control board sees progress live.
+  // `currentPart` is the same frontier within a multi-part question (always 0
+  // on a question without parts); parts accumulate on screen as it advances.
   //
   // `viewIndex` is purely local: the question actually on screen. It only
   // ever catches up to `currentPosition` when the student clicks forward —
   // that's the entire "don't advance automatically" behavior. A fresh load
   // starts the two equal (no artificial catch-up screen on resume).
   const [currentPosition, setCurrentPosition] = useState(0);
+  const [currentPart, setCurrentPart] = useState(0);
   const [viewIndex, setViewIndex] = useState(0);
-  const [attemptsByQuestion, setAttemptsByQuestion] = useState<AttemptsByQuestion>({});
+  const [attemptsByStep, setAttemptsByStep] = useState<AttemptsByStep>({});
   const [imagesByQuestion, setImagesByQuestion] = useState<ImagesByQuestion>({});
   const [answerText, setAnswerText] = useState("");
+  // At most one image per answer, on steps whose teacher allowed it.
+  const [answerImagePath, setAnswerImagePath] = useState<string | null>(null);
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -144,37 +177,41 @@ export function QuizRuntimePage() {
 
       const { data: qs } = await supabase
         .from("questions")
-        .select("id, quiz_id, position, prompt, correct_answer, grading_instructions, created_at, updated_at")
+        .select("id, quiz_id, position, prompt, correct_answer, grading_instructions, allow_answer_image, created_at, updated_at")
         .eq("quiz_id", session.quiz_id)
         .order("position");
       const qList = (qs ?? []) as Question[];
       setQuestions(qList);
       void loadImagesByQuestion(qList.map((q) => q.id)).then(setImagesByQuestion);
+      // Awaited (unlike images): which step is on screen depends on it.
+      setPartsByQuestion(await loadPartsByQuestion(qList.map((q) => q.id)));
 
       // Participant
       let pid: string | null = null;
       let pos = 0;
+      let part = 0;
 
       const cached = localStorage.getItem(`qf_participant_${sessionId}`);
       if (cached) {
         const { data: p } = await supabase
           .from("session_participants")
-          .select("id, current_position")
+          .select("id, current_position, current_part")
           .eq("id", cached)
           .single();
-        if (p) { pid = p.id; pos = p.current_position; }
+        if (p) { pid = p.id; pos = p.current_position; part = p.current_part; }
       }
 
       if (!pid) {
         const { data: p } = await supabase
           .from("session_participants")
-          .select("id, current_position")
+          .select("id, current_position, current_part")
           .eq("session_id", sessionId)
           .eq("student_id", user.id)
           .maybeSingle();
         if (p) {
           pid = p.id;
           pos = p.current_position;
+          part = p.current_part;
           localStorage.setItem(`qf_participant_${sessionId}`, p.id);
         }
       }
@@ -186,34 +223,39 @@ export function QuizRuntimePage() {
 
       setParticipantId(pid);
       setCurrentPosition(pos);
+      setCurrentPart(part);
       setViewIndex(pos);
 
       // Full answer history, across all questions — lets the student browse
       // back over completed questions without extra round-trips.
       const { data: responses } = await supabase
         .from("responses")
-        .select("question_id, attempt_number, answer_text, decision, student_feedback")
+        .select("question_id, part_id, attempt_number, answer_text, answer_image_path, decision, student_feedback")
         .eq("participant_id", pid)
         .order("attempt_number", { ascending: true });
 
-      const byQuestion: AttemptsByQuestion = {};
+      const byStep: AttemptsByStep = {};
       for (const r of (responses ?? []) as Array<{
         question_id: string;
+        part_id: string | null;
         attempt_number: number;
         answer_text: string;
+        answer_image_path: string | null;
         decision: GradingDecision | null;
         student_feedback: string | null;
       }>) {
-        const list = byQuestion[r.question_id] ?? [];
+        const key = stepKey(r.question_id, r.part_id);
+        const list = byStep[key] ?? [];
         list.push({
           attemptNumber: r.attempt_number,
           answerText: r.answer_text,
+          imagePath: r.answer_image_path,
           decision: r.decision,
           studentFeedback: r.student_feedback,
         });
-        byQuestion[r.question_id] = list;
+        byStep[key] = list;
       }
-      setAttemptsByQuestion(byQuestion);
+      setAttemptsByStep(byStep);
       setLoading(false);
     })();
   }, [sessionId, user?.id]);
@@ -224,9 +266,10 @@ export function QuizRuntimePage() {
 
     const channel = supabase
       .channel(`participant-${participantId}`)
-      // Position can move from a teacher's "push", or from resolve_response's
-      // own auto-advance on pass — either way we just mirror the DB. This
-      // never touches viewIndex: the student still clicks forward themselves.
+      // Position/part can move from a teacher's "push", or from
+      // resolve_response's own auto-advance on pass — either way we just
+      // mirror the DB. This never touches viewIndex: the student still clicks
+      // forward themselves.
       .on(
         "postgres_changes",
         {
@@ -238,6 +281,7 @@ export function QuizRuntimePage() {
         (payload) => {
           const updated = payload.new as SessionParticipant;
           setCurrentPosition(updated.current_position);
+          setCurrentPart(updated.current_part ?? 0);
         },
       )
       // The teacher removed this student (control board "remove"), or the
@@ -278,7 +322,7 @@ export function QuizRuntimePage() {
         },
       )
       // A teacher resolving an "unsure" response (pass or fail) updates it in
-      // place — patch it into the matching attempt by question + attempt#.
+      // place — patch it into the matching attempt by step + attempt#.
       // Required for "fail": that resolution never touches session_participants,
       // so without this the student's "waiting" screen would never clear.
       .on(
@@ -291,8 +335,9 @@ export function QuizRuntimePage() {
         },
         (payload) => {
           const resp = payload.new as DbResponse;
-          setAttemptsByQuestion((prev) => {
-            const list = prev[resp.question_id] ?? [];
+          const key = stepKey(resp.question_id, resp.part_id);
+          setAttemptsByStep((prev) => {
+            const list = prev[key] ?? [];
             const idx = list.findIndex((a) => a.attemptNumber === resp.attempt_number);
             if (idx === -1) return prev;
             const nextList = [...list];
@@ -301,7 +346,7 @@ export function QuizRuntimePage() {
               decision: resp.decision,
               studentFeedback: resp.student_feedback,
             };
-            return { ...prev, [resp.question_id]: nextList };
+            return { ...prev, [key]: nextList };
           });
         },
       )
@@ -310,11 +355,27 @@ export function QuizRuntimePage() {
     return () => { void supabase.removeChannel(channel); };
   }, [participantId]);
 
-  // ── Submit answer (frontier question only) ──────────────────────────────────
+  // ── The frontier step (what an answer submitted now would be for) ──────────
+  // A multi-part question's frontier is its part at `currentPart`; a question
+  // without parts is its own single step.
+  const frontierQuestion = questions[currentPosition];
+  const frontierParts = frontierQuestion ? (partsByQuestion[frontierQuestion.id] ?? []) : [];
+  const frontierPart = frontierParts.length > 0 ? (frontierParts[currentPart] ?? null) : null;
+  const frontierKey = frontierQuestion ? stepKey(frontierQuestion.id, frontierPart?.id) : null;
+  const frontierAttempts = frontierKey ? attemptsByStep[frontierKey] : undefined;
+  const frontierLatest = frontierAttempts?.[frontierAttempts.length - 1] ?? null;
+
+  // ── Submit answer (frontier step only) ─────────────────────────────────────
   const submitAnswer = async () => {
-    if (!participantId || !answerText.trim() || viewIndex !== currentPosition) return;
-    const currentQ = questions[viewIndex];
-    if (!currentQ) return;
+    if (!participantId || (!answerText.trim() && !answerImagePath) || viewIndex !== currentPosition) return;
+    const currentQ = frontierQuestion;
+    if (!currentQ || !frontierKey) return;
+    // A multi-part question whose frontier part is missing has nothing to answer.
+    if (frontierParts.length > 0 && !frontierPart) return;
+    const key = frontierKey;
+    const part = frontierPart;
+    const allowsImage = part ? part.allow_answer_image : currentQ.allow_answer_image;
+    const imagePath = allowsImage ? answerImagePath : null;
 
     setGrading(true);
     setGradeError(null);
@@ -324,6 +385,10 @@ export function QuizRuntimePage() {
         participant_id: participantId,
         question_id: currentQ.id,
         answer_text: answerText.trim(),
+        // The AI writes the feedback in the language the student is using.
+        language: activeLocale,
+        ...(part ? { part_id: part.id } : {}),
+        ...(imagePath ? { answer_image_path: imagePath } : {}),
       },
     });
 
@@ -334,15 +399,16 @@ export function QuizRuntimePage() {
     }
 
     const result = data as AiGradingResult;
-    setAttemptsByQuestion((prev) => {
-      const prior = prev[currentQ.id] ?? [];
+    setAttemptsByStep((prev) => {
+      const prior = prev[key] ?? [];
       return {
         ...prev,
-        [currentQ.id]: [
+        [key]: [
           ...prior,
           {
             attemptNumber: prior.length + 1,
             answerText: answerText.trim(),
+            imagePath,
             decision: result.decision,
             studentFeedback: result.studentFeedback,
           },
@@ -350,17 +416,25 @@ export function QuizRuntimePage() {
       };
     });
     setAnswerText("");
+    setAnswerImagePath(null);
 
-    // single_attempt always moves on; infinite_attempts only on a pass.
-    // viewIndex deliberately stays put — the question now renders as "past"
-    // (done), with forward enabled, until the student clicks it themselves.
+    // single_attempt always moves on; infinite_attempts only on a pass. The
+    // server decides where to: the next part, or the next question. On the
+    // last part (or a question without parts) viewIndex deliberately stays
+    // put — the question now renders as "past" (done), with forward enabled,
+    // until the student clicks it themselves. On an earlier part the next
+    // part simply appears below the answered ones.
     if (flowMode === "single_attempt" || result.decision === "pass") {
-      const newPos = currentPosition + 1;
-      const { error: advanceErr } = await supabase
-        .from("session_participants")
-        .update({ current_position: newPos })
-        .eq("id", participantId);
-      if (!advanceErr) setCurrentPosition(newPos);
+      const { data: next, error: advanceErr } = await supabase.rpc("advance_participant", {
+        _participant_id: participantId,
+        _question_id: currentQ.id,
+        _part_id: part?.id ?? null,
+      });
+      const row = (next as { current_position: number; current_part: number }[] | null)?.[0];
+      if (!advanceErr && row) {
+        setCurrentPosition(row.current_position);
+        setCurrentPart(row.current_part);
+      }
     }
 
     setGrading(false);
@@ -372,25 +446,24 @@ export function QuizRuntimePage() {
   // last answer. Done once per failed attempt (tracked by key) so it never
   // clobbers what they're typing; navigating away resets it.
   const prefilledAttemptRef = useRef<string | null>(null);
-  const frontierQuestion = questions[currentPosition];
-  const frontierAttempts = frontierQuestion ? attemptsByQuestion[frontierQuestion.id] : undefined;
-  const frontierLatest = frontierAttempts?.[frontierAttempts.length - 1] ?? null;
 
   useEffect(() => {
     if (
       flowMode !== "infinite_attempts" ||
       grading ||
       viewIndex !== currentPosition ||
-      !frontierQuestion ||
+      !frontierKey ||
       frontierLatest?.decision !== "fail"
     ) {
       return;
     }
-    const key = `${frontierQuestion.id}:${frontierLatest.attemptNumber}`;
+    const key = `${frontierKey}:${frontierLatest.attemptNumber}`;
     if (prefilledAttemptRef.current === key) return;
     prefilledAttemptRef.current = key;
     setAnswerText(frontierLatest.answerText);
-  }, [flowMode, grading, viewIndex, currentPosition, frontierQuestion, frontierLatest]);
+    // The image carries over too; the student can remove or replace it.
+    setAnswerImagePath(frontierLatest.imagePath);
+  }, [flowMode, grading, viewIndex, currentPosition, frontierKey, frontierLatest]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (sessionEnded) {
@@ -415,10 +488,24 @@ export function QuizRuntimePage() {
   const atSummary = viewIndex >= questions.length;
   const isFrontier = viewIndex === currentPosition;
   const question = atSummary ? null : questions[viewIndex];
-  const attempts = question ? (attemptsByQuestion[question.id] ?? []) : [];
+  const parts = question ? (partsByQuestion[question.id] ?? []) : [];
+  const isMultiPart = parts.length > 0;
+  // Parts already done on screen: all of them on a past question, the ones
+  // before the frontier part on the current one. Later parts stay hidden.
+  const completedParts = isFrontier ? parts.slice(0, currentPart) : parts;
+  const activePart = isMultiPart && isFrontier ? (parts[currentPart] ?? null) : null;
+  // The step whose answer box/feedback is shown: the frontier part, or the
+  // question itself when it has no parts.
+  const activeKey = question
+    ? (isMultiPart ? (activePart ? activePart.id : null) : question.id)
+    : null;
+  const attempts = activeKey ? (attemptsByStep[activeKey] ?? []) : [];
+  const activeAllowsImage = activePart
+    ? activePart.allow_answer_image
+    : !isMultiPart && !!question?.allow_answer_image;
   const latest = attempts[attempts.length - 1] ?? null;
 
-  const phase: "past" | "answering" | "waitingTeacher" = !isFrontier
+  const phase: "past" | "answering" | "waitingTeacher" = !isFrontier || !activeKey
     ? "past"
     : grading || !latest
       ? "answering"
@@ -433,6 +520,7 @@ export function QuizRuntimePage() {
     if (viewIndex <= 0) return;
     setViewIndex((v) => v - 1);
     setAnswerText("");
+    setAnswerImagePath(null);
     prefilledAttemptRef.current = null;
     setGradeError(null);
   };
@@ -441,14 +529,21 @@ export function QuizRuntimePage() {
     if (!canGoForward) return;
     setViewIndex((v) => v + 1);
     setAnswerText("");
+    setAnswerImagePath(null);
     prefilledAttemptRef.current = null;
     setGradeError(null);
+  };
+
+  const latestFor = (key: string): Attempt | null => {
+    const list = attemptsByStep[key] ?? [];
+    return list[list.length - 1] ?? null;
   };
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <Link to="/my-quizzes" className="btn">{t.nav.home}</Link>
+        <LanguageSwitcher />
         <h1 className={styles.quizTitle}>{quizTitle}</h1>
         <div className={styles.navControls}>
           <button
@@ -467,6 +562,11 @@ export function QuizRuntimePage() {
           <span className={styles.progress}>
             {t.studentRuntime.questionN} {Math.min(viewIndex, questions.length - 1) + 1}{" "}
             {t.studentRuntime.of} {questions.length}
+            {activePart && (
+              <>
+                {" · "}{t.studentRuntime.partN} {currentPart + 1} {t.studentRuntime.of} {parts.length}
+              </>
+            )}
           </span>
           <button
             type="button"
@@ -495,20 +595,63 @@ export function QuizRuntimePage() {
             <pre className={styles.prompt}>{question?.prompt}</pre>
             {question && (imagesByQuestion[question.id]?.length ?? 0) > 0 && (
               <div className={styles.questionImages}>
-                {imagesByQuestion[question.id].map((url) => (
-                  <img key={url} src={url} alt="" className={styles.questionImage} />
+                {imagesByQuestion[question.id].map((url, idx) => (
+                  <figure key={url} className={styles.questionFigure}>
+                    <img src={url} alt="" className={styles.questionImage} />
+                    <figcaption className={styles.imageCaption}>
+                      {t.studentRuntime.imageN} {idx + 1}
+                    </figcaption>
+                  </figure>
                 ))}
               </div>
             )}
           </div>
 
-          {phase === "past" && (
+          {/* Answered parts accumulate here, each with its answer and feedback. */}
+          {completedParts.map((part) => {
+            const done = latestFor(part.id);
+            return (
+              <div key={part.id} className={styles.pastBox}>
+                <p className={styles.partLabel}>{t.studentRuntime.partN} {part.position + 1}</p>
+                <pre className={styles.partPrompt}>{part.prompt}</pre>
+                {done ? (
+                  <>
+                    <p className={styles.answerLabel}>{t.studentRuntime.yourAnswerLabel}</p>
+                    {done.answerText && <pre className={styles.answerText}>{done.answerText}</pre>}
+                    {done.imagePath && (
+                      <AnswerImageThumb path={done.imagePath} alt={t.studentRuntime.answerImageAlt} />
+                    )}
+                    {done.studentFeedback && (
+                      <>
+                        <p className={styles.answerLabel}>{t.studentRuntime.feedbackLabel}</p>
+                        <p className={styles.pastFeedback}>{done.studentFeedback}</p>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <p className={styles.pastFeedback}>{t.studentRuntime.noAnswerSubmitted}</p>
+                )}
+              </div>
+            );
+          })}
+
+          {activePart && (
+            <div className={styles.questionBox}>
+              <p className={styles.partLabel}>{t.studentRuntime.partN} {currentPart + 1}</p>
+              <pre className={styles.prompt}>{activePart.prompt}</pre>
+            </div>
+          )}
+
+          {phase === "past" && !isMultiPart && (
             <div className={styles.pastBox}>
               <span className={styles.pastBadge}>{t.studentQuizzes.statusCompleted}</span>
               {latest ? (
                 <>
                   <p className={styles.answerLabel}>{t.studentRuntime.yourAnswerLabel}</p>
-                  <pre className={styles.answerText}>{latest.answerText}</pre>
+                  {latest.answerText && <pre className={styles.answerText}>{latest.answerText}</pre>}
+                  {latest.imagePath && (
+                    <AnswerImageThumb path={latest.imagePath} alt={t.studentRuntime.answerImageAlt} />
+                  )}
                   {latest.studentFeedback && (
                     <>
                       <p className={styles.answerLabel}>{t.studentRuntime.feedbackLabel}</p>
@@ -520,6 +663,10 @@ export function QuizRuntimePage() {
                 <p className={styles.pastFeedback}>{t.studentRuntime.noAnswerSubmitted}</p>
               )}
             </div>
+          )}
+
+          {phase === "past" && isMultiPart && (
+            <span className={styles.pastBadge}>{t.studentQuizzes.statusCompleted}</span>
           )}
 
           {phase === "waitingTeacher" && (
@@ -548,16 +695,39 @@ export function QuizRuntimePage() {
                 disabled={grading}
                 onChange={setAnswerText}
               />
+              {activeAllowsImage && participantId && (
+                <AnswerImageAttach
+                  participantId={participantId}
+                  value={answerImagePath}
+                  onChange={setAnswerImagePath}
+                  disabled={grading}
+                />
+              )}
               {gradeError && <p className={styles.gradeError}>{gradeError}</p>}
               <button
                 type="button"
                 className="btn btn--primary"
-                disabled={grading || !answerText.trim()}
+                disabled={grading || (!answerText.trim() && !(activeAllowsImage && answerImagePath))}
                 onClick={() => void submitAnswer()}
               >
                 {grading ? t.studentRuntime.submitting : t.studentRuntime.submitAnswer}
               </button>
             </div>
+          )}
+
+          {/* Same condition as the header's forward arrow — the question is
+              done (answered in single_attempt, passed or teacher-advanced in
+              infinite_attempts) — but where the student's eyes already are. */}
+          {canGoForward && (
+            <button
+              type="button"
+              className={`btn btn--primary ${styles.nextQuestionBtn}`}
+              onClick={goForward}
+            >
+              {viewIndex + 1 >= questions.length
+                ? t.studentRuntime.finishButton
+                : t.studentRuntime.nextQuestionButton}
+            </button>
           )}
         </>
       )}

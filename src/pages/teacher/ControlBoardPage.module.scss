@@ -40,6 +40,23 @@
   color: var(--color-text-muted);
 }
 
+.statUsage {
+  padding-block: 3px;
+  padding-inline: var(--space-2);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.priceListDate {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
 .creditAlert {
   margin-block: 0 var(--space-6);
   padding: var(--space-3) var(--space-4);
@@ -59,5 +76,36 @@
 .grid {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
+}
+
+.exportError {
+  align-self: center;
+  font-size: 0.8rem;
+  color: var(--color-danger);
+}
+
+.listToolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-block-end: var(--space-3);
+
+  :global(.btn) {
+    font-size: 0.8rem;
+    padding-block: var(--space-1);
+  }
+}
+
+// Same columns as a participant row (ParticipantCard.module.scss `.row`),
+// plus the row's 1px border, so the headers sit over their columns.
+.listHeader {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) minmax(9rem, 14rem) 8rem;
+  gap: var(--space-3);
+  padding-inline: calc(var(--space-3) + 1px);
+  margin-block-end: var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
 }

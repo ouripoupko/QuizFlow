@@ -1,40 +1,71 @@
+// Shared by the summary rows and the board's header row, so the columns
+// line up: chevron | name | progress | status.
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   transition: border-color 0.2s;
 
   &.status--waiting {
     border-color: #f59e0b;
+    border-inline-start-width: 4px;
   }
 
-  &.status--done {
+  &.status--done .row {
     opacity: 0.65;
   }
 }
 
-.top {
-  display: flex;
+.row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) minmax(9rem, 14rem) 8rem;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  inline-size: 100%;
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border: none;
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+
+  &:hover {
+    background: var(--color-bg);
+  }
+}
+
+.chevron {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
 }
 
 .name {
   font-weight: 600;
   font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .badge {
+  justify-self: start;
   font-size: 0.75rem;
   font-weight: 600;
   padding-block: 2px;
   padding-inline: var(--space-2);
   border-radius: 999px;
+  white-space: nowrap;
 
   &.badge--answering {
     background: #e0f2fe;
@@ -55,6 +86,9 @@
 .progress {
   font-size: 0.8rem;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .answerBox {
@@ -71,6 +105,35 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #92400e;
+}
+
+.aiReplyBroken {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.aiReplyBrokenShort {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.aiReasoning {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid #f59e0b;
+  background: #fffbeb;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .answerText {
@@ -114,6 +177,13 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-muted);
+}
+
+.partGroupLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-block-start: var(--space-1);
 }
 
 .answersTable {
@@ -279,4 +349,30 @@
     opacity: 0.5;
     cursor: default;
   }
+}
+
+.questionText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}
+
+.questionPrompt {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-block-size: 160px;
+  overflow-y: auto;
+}
+
+.questionImages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }

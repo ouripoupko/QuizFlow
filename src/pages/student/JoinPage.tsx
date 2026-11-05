@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { t } from "@/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuthStore } from "@/store/authStore";
 import styles from "./JoinPage.module.scss";
 
@@ -126,6 +127,7 @@ export function JoinPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
+        <LanguageSwitcher />
         <h1 className={styles.quizTitle}>
           {session.quizzes.title || t.studentJoin.pageTitle}
         </h1>

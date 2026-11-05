@@ -67,6 +67,26 @@ export interface Question {
   /** Optional — null means the AI determines correctness itself (spec §5). */
   correct_answer: string | null;
   grading_instructions: string;
+  /** The teacher lets students attach one image to their answer (ignored once the question has parts). */
+  allow_answer_image: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One numbered part ("סעיף") of a multi-part question. The question's own
+ * prompt and images are the shared scenario; a question with no parts is an
+ * ordinary single question. See supabase/migrations/20261102120000_question_parts.sql.
+ */
+export interface QuestionPart {
+  id: string;
+  question_id: string;
+  position: number;
+  prompt: string;
+  /** Optional — null means the AI determines correctness itself. */
+  correct_answer: string | null;
+  /** The teacher lets students attach one image to their answer to this part. */
+  allow_answer_image: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +139,8 @@ export interface SessionParticipant {
   student_id: string | null;
   display_name: string;
   current_position: number;
+  /** Index into the current question's parts; always 0 on a question without parts. */
+  current_part: number;
   status: string;
   joined_at: string;
 }
@@ -127,14 +149,22 @@ export interface Response {
   id: string;
   participant_id: string;
   question_id: string;
+  /** Set on answers to a part of a multi-part question; null otherwise. */
+  part_id: string | null;
   attempt_number: number;
   answer_text: string;
+  /** Path in the answer-images bucket when the student attached an image; null otherwise. */
+  answer_image_path: string | null;
   submitted_at: string;
   /** AiGradingResult fields (spec §7.2); null until graded. */
   decision: GradingDecision | null;
   student_feedback: string | null;
   /** Exact request body sent to the AI provider for this grading call — admin-only, never contains the API key. */
   ai_request: Record<string, unknown> | null;
+  /** The AI's reply metadata for that call (model, stop_reason, token usage) — admin-only. Null before it was recorded. */
+  ai_response_meta: Record<string, unknown> | null;
+  /** The AI's explanation of its verdict, for the teacher. Null before it was recorded. */
+  ai_reasoning: string | null;
   graded_by: GradingSource | null;
   graded_at: string | null;
 }

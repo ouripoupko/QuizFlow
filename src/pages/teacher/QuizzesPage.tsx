@@ -120,7 +120,7 @@ export function QuizzesPage() {
                 {quiz.status === "published" ? t.quizList.published : t.quizList.draft}
               </span>
               <h2 className={styles.quizTitle}>
-                {quiz.title || <em className={styles.untitled}>(ללא כותרת)</em>}
+                {quiz.title || <em className={styles.untitled}>{t.common.untitled}</em>}
               </h2>
               {quiz.description && (
                 <p className={styles.description}>{quiz.description}</p>
