@@ -45,6 +45,11 @@ export interface GradingInput {
    * with its text — null when there is none (or images aren't allowed).
    */
   studentImage: ImageBlock | null;
+  /**
+   * The teacher's correct-answer image (of the question, or of the part
+   * being graded) — compared against like the answer text; null if none.
+   */
+  answerKeyImage: ImageBlock | null;
   /** null for a question without parts. */
   part: GradingPart | null;
   /**

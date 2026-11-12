@@ -75,20 +75,25 @@ export async function loadStorageImageBlock(
 
 /**
  * Message content: each question image preceded by its number, then the
- * student's answer image if any (labelled separately, so it can't be
- * mistaken for "image N" of the question), then the prompt text.
+ * teacher's correct-answer image and the student's answer image if any
+ * (each labelled separately, so neither can be mistaken for "image N" of
+ * the question), then the prompt text.
  */
 export function contentWithNumberedImages(
   images: ImageBlock[],
   text: string,
   studentImage: ImageBlock | null = null,
+  answerKeyImage: ImageBlock | null = null,
 ): string | Array<TextBlock | ImageBlock> {
-  if (images.length === 0 && !studentImage) return text;
+  if (images.length === 0 && !studentImage && !answerKeyImage) return text;
   return [
     ...images.flatMap((img, i): Array<TextBlock | ImageBlock> => [
       { type: "text", text: `תמונה ${i + 1}:` },
       img,
     ]),
+    ...(answerKeyImage
+      ? [{ type: "text", text: "תמונת התשובה הנכונה (של המורה, לא של התלמיד):" } as TextBlock, answerKeyImage]
+      : []),
     ...(studentImage
       ? [{ type: "text", text: "תמונת התלמיד (חלק מתשובתו):" } as TextBlock, studentImage]
       : []),

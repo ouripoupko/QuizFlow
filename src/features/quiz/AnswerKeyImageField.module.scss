@@ -1,0 +1,61 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.zone {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.attached {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.placeholder {
+  display: inline-block;
+  inline-size: 80px;
+  block-size: 60px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.linkBtn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-danger);
+}

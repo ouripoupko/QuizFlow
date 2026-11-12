@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { ANSWER_KEY_IMAGES_BUCKET } from "@/lib/answerKeyImages";
 import type { FlowMode, Question, QuestionPart, Quiz } from "@/types/domain";
 
 // Portable quiz format — only fields that make sense on a different account
@@ -12,8 +13,10 @@ import type { FlowMode, Question, QuestionPart, Quiz } from "@/types/domain";
 //      question without parts.
 //   3: adds the optional `allow_answer_image` flag on questions and parts.
 //      Absent in older files, meaning "no".
+//   4: adds the optional `correct_answer_image` on questions and parts (the
+//      correct answer's image). Absent in older files, meaning none.
 const EXPORT_FORMAT = "quizflow-quiz";
-const EXPORT_FORMAT_VERSION = 3;
+const EXPORT_FORMAT_VERSION = 4;
 
 interface QuizExportImage {
   position: number;
@@ -28,6 +31,15 @@ interface QuizExportPart {
   correct_answer: string | null;
   /** Absent before version 3. */
   allow_answer_image?: boolean;
+  /** Absent before version 4; null when the answer has no image. */
+  correct_answer_image?: QuizExportAnswerImage | null;
+}
+
+/** An answer-key image, embedded like question images. */
+interface QuizExportAnswerImage {
+  media_type: string;
+  /** Base64-encoded file contents, no "data:" prefix. */
+  data: string;
 }
 
 interface QuizExportQuestion {
@@ -38,13 +50,15 @@ interface QuizExportQuestion {
   images: QuizExportImage[];
   /** Absent before version 3. */
   allow_answer_image?: boolean;
+  /** Absent before version 4; null when the answer has no image. */
+  correct_answer_image?: QuizExportAnswerImage | null;
   /** Absent in version-1 files; empty for a question without parts. */
   parts?: QuizExportPart[];
 }
 
 interface QuizExportFile {
   format: typeof EXPORT_FORMAT;
-  formatVersion: 1 | 2 | typeof EXPORT_FORMAT_VERSION;
+  formatVersion: 1 | 2 | 3 | typeof EXPORT_FORMAT_VERSION;
   quiz: {
     title: string;
     description: string;
@@ -78,6 +92,31 @@ const EXTENSION_BY_MEDIA_TYPE: Record<string, string> = {
   "image/webp": "webp",
 };
 
+async function exportAnswerKeyImage(path: string | null): Promise<QuizExportAnswerImage | null> {
+  if (!path) return null;
+  const { data: blob } = await supabase.storage.from(ANSWER_KEY_IMAGES_BUCKET).download(path);
+  if (!blob) return null;
+  return {
+    media_type: blob.type || "image/jpeg",
+    data: bytesToBase64(new Uint8Array(await blob.arrayBuffer())),
+  };
+}
+
+async function importAnswerKeyImage(
+  quizId: string,
+  questionId: string,
+  image: QuizExportAnswerImage | null | undefined,
+): Promise<string | null> {
+  if (!image) return null;
+  const ext = EXTENSION_BY_MEDIA_TYPE[image.media_type] ?? "jpg";
+  const path = `${quizId}/${questionId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(ANSWER_KEY_IMAGES_BUCKET)
+    .upload(path, base64ToBytes(image.data), { contentType: image.media_type, upsert: false });
+  if (error) throw error;
+  return path;
+}
+
 export async function exportQuizToFile(quiz: Quiz, questions: Question[]): Promise<void> {
   const exportQuestions: QuizExportQuestion[] = await Promise.all(
     questions.map(async (q) => {
@@ -103,18 +142,19 @@ export async function exportQuizToFile(quiz: Quiz, questions: Question[]): Promi
 
       const { data: partRows } = await supabase
         .from("question_parts")
-        .select("position, prompt, correct_answer, allow_answer_image")
+        .select("position, prompt, correct_answer, allow_answer_image, correct_answer_image_path")
         .eq("question_id", q.id)
         .order("position", { ascending: true });
-      const parts: QuizExportPart[] = ((partRows ?? []) as Pick<
+      const parts: QuizExportPart[] = await Promise.all(((partRows ?? []) as Pick<
         QuestionPart,
-        "position" | "prompt" | "correct_answer" | "allow_answer_image"
-      >[]).map((p) => ({
+        "position" | "prompt" | "correct_answer" | "allow_answer_image" | "correct_answer_image_path"
+      >[]).map(async (p) => ({
         position: p.position,
         prompt: p.prompt,
         correct_answer: p.correct_answer,
         allow_answer_image: p.allow_answer_image,
-      }));
+        correct_answer_image: await exportAnswerKeyImage(p.correct_answer_image_path),
+      })));
 
       return {
         position: q.position,
@@ -123,6 +163,7 @@ export async function exportQuizToFile(quiz: Quiz, questions: Question[]): Promi
         grading_instructions: q.grading_instructions,
         images,
         allow_answer_image: q.allow_answer_image,
+        correct_answer_image: await exportAnswerKeyImage(q.correct_answer_image_path),
         parts,
       };
     }),
@@ -211,6 +252,17 @@ export async function importQuizFromFile(file: QuizExportFile, creatorId: string
     if (qErr) throw qErr;
     const questionId = questionRow.id as string;
 
+    // The answer image's path includes the new question's id, so it's
+    // uploaded after the insert and attached with an update.
+    const answerImagePath = await importAnswerKeyImage(quizId, questionId, q.correct_answer_image);
+    if (answerImagePath) {
+      const { error: aiErr } = await supabase
+        .from("questions")
+        .update({ correct_answer_image_path: answerImagePath })
+        .eq("id", questionId);
+      if (aiErr) throw aiErr;
+    }
+
     // Same as questions: inserted one by one in original order, `position`
     // omitted — the append trigger reproduces the sequence.
     const sortedParts = [...(q.parts ?? [])].sort((a, b) => a.position - b.position);
@@ -220,6 +272,7 @@ export async function importQuizFromFile(file: QuizExportFile, creatorId: string
         prompt: part.prompt,
         correct_answer: part.correct_answer,
         allow_answer_image: part.allow_answer_image ?? false,
+        correct_answer_image_path: await importAnswerKeyImage(quizId, questionId, part.correct_answer_image),
       });
       if (partErr) throw partErr;
     }

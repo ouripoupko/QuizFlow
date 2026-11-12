@@ -80,6 +80,13 @@ function buildPrompt(input: GradingInput): string {
     );
   }
 
+  if (input.answerKeyImage) {
+    lines.push(
+      `לתשובה הנכונה מצורפת תמונה (מסומנת "תמונת התשובה הנכונה"), למשל השרטוט או הגרף הצפויים. ` +
+        `היא חלק מהתשובה הנכונה: השווה אליה את תשובת התלמיד.`,
+    );
+  }
+
   if (input.correctAnswer) {
     lines.push(
       part
@@ -167,7 +174,12 @@ export const anthropicAdapter: ProviderAdapter = {
       max_tokens: thinking ? THINKING_MAX_TOKENS : BASE_MAX_TOKENS,
       messages: [{
         role: "user",
-        content: contentWithNumberedImages(input.images, buildPrompt(input), input.studentImage),
+        content: contentWithNumberedImages(
+          input.images,
+          buildPrompt(input),
+          input.studentImage,
+          input.answerKeyImage,
+        ),
       }],
     };
 

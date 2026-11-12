@@ -27,7 +27,42 @@ const RequestSchema = z.object({
   part_number: z.number().int().min(1).optional(),
   part_prompt: z.string().min(1).max(10_000).optional(),
   previous_part_prompts: z.array(z.string().max(10_000)).max(50).optional(),
+  // The answer has no image yet, so the AI may draw one (as SVG) when the
+  // question asks the student for a diagram. Absent from older clients.
+  allow_diagram: z.boolean().default(false),
 });
+
+// Claude doesn't produce images; it writes SVG (a vector drawing in text),
+// which the editor turns into an ordinary image. Structured outputs keep the
+// reply parseable: the SVG is a JSON string, escaping handled by the API.
+const DIAGRAM_SCHEMA = {
+  type: "object",
+  properties: {
+    answer: { type: "string" },
+    svg: { type: "string" },
+  },
+  required: ["answer", "svg"],
+  additionalProperties: false,
+};
+
+const DIAGRAM_INSTRUCTIONS =
+  `החזר אובייקט JSON עם שני שדות:\n` +
+  `- "answer": התשובה הנכונה בטקסט, תמציתית וברורה, ללא הסבר.\n` +
+  `- "svg": אם השאלה מבקשת מהתלמיד לשרטט, לסרטט או לצייר משהו (גרף, דיאגרמת כוחות, מעגל ` +
+  `חשמלי, סקיצה גאומטרית וכדומה) — שרטוט התשובה הנכונה כקוד SVG שלם; אחרת מחרוזת ריקה.\n` +
+  `כללים ל-SVG: אלמנט <svg> יחיד עם xmlns ו-viewBox (עד 800×600), רקע לבן (rect מלא), ` +
+  `קווים שחורים ברורים, תוויות בגופן sans-serif בשפת השאלה, חיצים באמצעות marker. ` +
+  `ללא תמונות חיצוניות, ללא סקריפטים וללא קישורים. שרטוט סכמטי ונקי — לא אמנותי.`;
+
+// Generous: an SVG can run to a few thousand tokens.
+const DIAGRAM_MAX_TOKENS = 8192;
+const TEXT_MAX_TOKENS = 512;
+
+function cleanSvg(svg: string): string | null {
+  const s = svg.trim();
+  if (!s.startsWith("<svg") || !s.endsWith("</svg>") || s.length > 200_000) return null;
+  return s;
+}
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-4-8";
@@ -100,7 +135,9 @@ Deno.serve(async (req: Request) => {
         input.grading_instructions
           ? `הנחיות ציון:\n${input.grading_instructions}`
           : "",
-        `כתוב את התשובה הנכונה לסעיף ${partNumber} בלבד. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.`,
+        input.allow_diagram
+          ? `כתוב את התשובה הנכונה לסעיף ${partNumber} בלבד.\n\n${DIAGRAM_INSTRUCTIONS}`
+          : `כתוב את התשובה הנכונה לסעיף ${partNumber} בלבד. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.`,
       ]
       : [
         `שאלה:\n${input.question_prompt}`,
@@ -108,7 +145,9 @@ Deno.serve(async (req: Request) => {
         input.grading_instructions
           ? `הנחיות ציון:\n${input.grading_instructions}`
           : "",
-        "כתוב את התשובה הנכונה לשאלה זו. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.",
+        input.allow_diagram
+          ? `כתוב את התשובה הנכונה לשאלה זו.\n\n${DIAGRAM_INSTRUCTIONS}`
+          : "כתוב את התשובה הנכונה לשאלה זו. היה תמציתי וברור. החזר את התשובה בלבד, ללא הסבר.",
       ])
       .filter(Boolean)
       .join("\n\n");
@@ -122,11 +161,14 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 512,
+        max_tokens: input.allow_diagram ? DIAGRAM_MAX_TOKENS : TEXT_MAX_TOKENS,
         messages: [{
           role: "user",
           content: contentWithNumberedImages(imageBlocks, prompt),
         }],
+        ...(input.allow_diagram
+          ? { output_config: { format: { type: "json_schema", schema: DIAGRAM_SCHEMA } } }
+          : {}),
       }),
     });
 
@@ -155,9 +197,21 @@ Deno.serve(async (req: Request) => {
       .eq("teacher_id", user.id)
       .not("credit_exhausted_at", "is", null);
 
-    const correctAnswer = data.content.find((c) => c.type === "text")?.text?.trim() ?? "";
+    const text = data.content.find((c) => c.type === "text")?.text?.trim() ?? "";
+    let correctAnswer = text;
+    let diagramSvg: string | null = null;
+    if (input.allow_diagram) {
+      try {
+        const parsed = JSON.parse(text) as { answer?: unknown; svg?: unknown };
+        correctAnswer = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
+        diagramSvg = typeof parsed.svg === "string" ? cleanSvg(parsed.svg) : null;
+      } catch {
+        // Not JSON after all — treat the whole reply as the text answer.
+        console.error("ask-ai: diagram reply was not valid JSON:", text.slice(0, 500));
+      }
+    }
 
-    return new Response(JSON.stringify({ correctAnswer }), {
+    return new Response(JSON.stringify({ correctAnswer, diagramSvg }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

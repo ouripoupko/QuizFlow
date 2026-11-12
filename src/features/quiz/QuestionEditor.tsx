@@ -6,6 +6,8 @@ import { DirectionalTextarea } from "@/components/DirectionalTextarea";
 import type { Question, QuestionPart } from "@/types/domain";
 import { GradingInstructionEditor } from "./GradingInstructionEditor";
 import { ImageUploader } from "./ImageUploader";
+import { AnswerKeyImageField } from "./AnswerKeyImageField";
+import { svgToPng, uploadAnswerKeyImage } from "@/lib/answerKeyImages";
 import styles from "./QuestionEditor.module.scss";
 
 // Known ask-ai reasons (raw English from the Edge Function, see
@@ -25,6 +27,7 @@ interface DraftPart {
   prompt: string;
   correctAnswer: string;
   allowImage: boolean;
+  answerImagePath: string | null;
 }
 
 function toDraftParts(parts: QuestionPart[]): DraftPart[] {
@@ -34,6 +37,7 @@ function toDraftParts(parts: QuestionPart[]): DraftPart[] {
     prompt: p.prompt,
     correctAnswer: p.correct_answer ?? "",
     allowImage: p.allow_answer_image,
+    answerImagePath: p.correct_answer_image_path,
   }));
 }
 
@@ -44,6 +48,8 @@ function partsDirty(draft: DraftPart[], saved: QuestionPart[]): boolean {
     || d.prompt !== saved[i].prompt
     || (d.correctAnswer.trim() || null) !== saved[i].correct_answer
     || d.allowImage !== saved[i].allow_answer_image
+    // An answer image only exists while students may answer with an image.
+    || (d.allowImage ? d.answerImagePath : null) !== saved[i].correct_answer_image_path
   );
 }
 
@@ -78,6 +84,7 @@ export function QuestionEditor({
   const [correctAnswer, setCorrectAnswer] = useState(question.correct_answer ?? "");
   const [grading, setGrading] = useState(question.grading_instructions);
   const [allowImage, setAllowImage] = useState(question.allow_answer_image);
+  const [answerImagePath, setAnswerImagePath] = useState(question.correct_answer_image_path);
   const [parts, setParts] = useState<DraftPart[]>([]);
   // Which ask-ai request is in flight / failed: "question" or a part's key.
   const [askingAiFor, setAskingAiFor] = useState<string | null>(null);
@@ -114,6 +121,7 @@ export function QuestionEditor({
     || (hasParts ? null : (correctAnswer.trim() || null)) !== question.correct_answer
     || grading !== question.grading_instructions
     || (hasParts ? false : allowImage) !== question.allow_answer_image
+    || (hasParts || !allowImage ? null : answerImagePath) !== question.correct_answer_image_path
     || (partsLoaded && partsDirty(parts, savedParts));
 
   useEffect(() => {
@@ -125,6 +133,7 @@ export function QuestionEditor({
     setCorrectAnswer(question.correct_answer ?? "");
     setGrading(question.grading_instructions);
     setAllowImage(question.allow_answer_image);
+    setAnswerImagePath(question.correct_answer_image_path);
     setParts(toDraftParts(savedParts));
     setAiError(null);
   }
@@ -143,11 +152,16 @@ export function QuestionEditor({
         _grading_instructions: grading,
         // Like the answer, the "allow an image" choice lives on the parts.
         _allow_answer_image: hasParts ? false : allowImage,
+        _set_correct_answer_image: true,
+        // Tied to "allow the student to attach an image": unchecking it drops
+        // the reference image on save.
+        _correct_answer_image_path: hasParts || !allowImage ? null : answerImagePath,
         _parts: parts.map((p) => ({
           id: p.id,
           prompt: p.prompt,
           correct_answer: p.correctAnswer.trim() || null,
           allow_answer_image: p.allowImage,
+          correct_answer_image_path: p.allowImage ? p.answerImagePath : null,
         })),
       });
       if (error) throw error;
@@ -161,6 +175,7 @@ export function QuestionEditor({
       if (hasParts) {
         setCorrectAnswer("");
         setAllowImage(false);
+        setAnswerImagePath(null);
       }
       void qc.invalidateQueries({ queryKey: questionsKey });
       // Only reachable while open (the save button lives inside the
@@ -178,7 +193,16 @@ export function QuestionEditor({
   });
 
   // `target` is "question" for the question's own answer, or a part's key.
-  async function askAi(target: string, body: Record<string, unknown>, onAnswer: (a: string) => void) {
+  // `mayDraw`: students may answer with an image and the answer has none yet
+  // — then the AI may also draw one (SVG, turned into an image here) if the
+  // question asks the student for a diagram.
+  async function askAi(
+    target: string,
+    body: Record<string, unknown>,
+    mayDraw: boolean,
+    onAnswer: (a: string) => void,
+    onDiagram: (path: string) => void,
+  ) {
     setAskingAiFor(target);
     setAiError(null);
     try {
@@ -188,6 +212,7 @@ export function QuestionEditor({
           question_prompt: prompt,
           grading_instructions: grading,
           question_id: question.id,
+          allow_diagram: mayDraw,
           ...body,
         },
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
@@ -198,7 +223,18 @@ export function QuestionEditor({
         setAiError({ target, message: KNOWN_ASK_AI_ERRORS[reason] ?? reason });
         return;
       }
-      onAnswer((res.data as { correctAnswer: string }).correctAnswer);
+      const { correctAnswer: answer, diagramSvg } = res.data as {
+        correctAnswer: string;
+        diagramSvg?: string | null;
+      };
+      onAnswer(answer);
+      if (diagramSvg) {
+        try {
+          onDiagram(await uploadAnswerKeyImage(quizId, question.id, await svgToPng(diagramSvg)));
+        } catch {
+          setAiError({ target, message: t.questionEditor.diagramFailed });
+        }
+      }
     } catch (e) {
       setAiError({ target, message: e instanceof Error ? e.message : t.common.error });
     } finally {
@@ -222,11 +258,13 @@ export function QuestionEditor({
         prompt: "",
         correctAnswer: first ? correctAnswer : "",
         allowImage: first ? allowImage : false,
+        answerImagePath: first ? answerImagePath : null,
       }];
     });
     if (parts.length === 0) {
       setCorrectAnswer("");
       setAllowImage(false);
+      setAnswerImagePath(null);
     }
   }
 
@@ -355,7 +393,14 @@ export function QuestionEditor({
                     type="button"
                     className="btn"
                     disabled={!prompt.trim() || askingAiFor !== null}
-                    onClick={() => void askAi("question", {}, setCorrectAnswer)}
+                    onClick={() =>
+                      void askAi(
+                        "question",
+                        {},
+                        allowImage && !answerImagePath,
+                        setCorrectAnswer,
+                        setAnswerImagePath,
+                      )}
                   >
                     {askingAiFor === "question" ? t.questionEditor.askingAi : t.questionEditor.askAiButton}
                   </button>
@@ -371,6 +416,16 @@ export function QuestionEditor({
                 />
                 {t.questionEditor.allowAnswerImage}
               </label>
+              {/* A reference image only makes sense when students may answer with one. */}
+              {allowImage && (
+                <AnswerKeyImageField
+                  quizId={quizId}
+                  questionId={question.id}
+                  value={answerImagePath}
+                  onChange={setAnswerImagePath}
+                  locked={locked}
+                />
+              )}
             </>
           )}
 
@@ -447,7 +502,9 @@ export function QuestionEditor({
                           part_prompt: part.prompt,
                           previous_part_prompts: parts.slice(0, idx).map((p) => p.prompt),
                         },
+                        part.allowImage && !part.answerImagePath,
                         (answer) => updatePart(part.key, { correctAnswer: answer }),
+                        (path) => updatePart(part.key, { answerImagePath: path }),
                       )}
                   >
                     {askingAiFor === part.key ? t.questionEditor.askingAi : t.questionEditor.askAiButton}
@@ -464,6 +521,15 @@ export function QuestionEditor({
                 />
                 {t.questionEditor.allowAnswerImage}
               </label>
+              {part.allowImage && (
+                <AnswerKeyImageField
+                  quizId={quizId}
+                  questionId={question.id}
+                  value={part.answerImagePath}
+                  onChange={(path) => updatePart(part.key, { answerImagePath: path })}
+                  locked={locked}
+                />
+              )}
             </div>
           ))}
           {!locked && (

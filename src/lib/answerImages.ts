@@ -13,8 +13,11 @@ export const ANSWER_IMAGES_BUCKET = "answer-images";
 const MAX_DIMENSION = 1568;
 const JPEG_QUALITY = 0.85;
 
-/** Shrinks a picked/pasted image to at most MAX_DIMENSION and re-encodes it as JPEG. */
-async function downscale(file: Blob): Promise<Blob> {
+/**
+ * Shrinks a picked/pasted image to at most MAX_DIMENSION and re-encodes it
+ * as JPEG. Also used for teacher answer-key images (src/lib/answerKeyImages.ts).
+ */
+export async function downscaleToJpeg(file: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
@@ -42,7 +45,7 @@ async function downscale(file: Blob): Promise<Blob> {
 
 /** Downscales and uploads a student's image; returns its storage path. */
 export async function uploadAnswerImage(participantId: string, file: Blob): Promise<string> {
-  const blob = await downscale(file);
+  const blob = await downscaleToJpeg(file);
   const path = `${participantId}/${crypto.randomUUID()}.jpg`;
   const { error } = await supabase.storage
     .from(ANSWER_IMAGES_BUCKET)
@@ -53,18 +56,23 @@ export async function uploadAnswerImage(participantId: string, file: Blob): Prom
 
 /** A short-lived URL to show a stored answer image (null while loading or on failure). */
 export function useAnswerImageUrl(path: string | null | undefined): string | null {
+  return useSignedImageUrl(ANSWER_IMAGES_BUCKET, path);
+}
+
+/** A short-lived URL for an image in a private bucket (null while loading or on failure). */
+export function useSignedImageUrl(bucket: string, path: string | null | undefined): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     setUrl(null);
     if (!path) return;
     let cancelled = false;
     void supabase.storage
-      .from(ANSWER_IMAGES_BUCKET)
+      .from(bucket)
       .createSignedUrl(path, 3600)
       .then(({ data }) => {
         if (!cancelled) setUrl(data?.signedUrl ?? null);
       });
     return () => { cancelled = true; };
-  }, [path]);
+  }, [bucket, path]);
   return url;
 }

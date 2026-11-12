@@ -187,6 +187,12 @@ export const he = {
     deletePartConfirm: "למחוק את הסעיף? תשובות תלמידים לסעיף זה יימחקו בעת השמירה.",
     partsCount: "סעיפים",
     allowAnswerImage: "אפשר לתלמיד לצרף תמונה לתשובה",
+    addAnswerImage: "🖼 הוספת תמונה לתשובה (העלאה או הדבקה)",
+    replaceAnswerImage: "החלפה",
+    removeAnswerImage: "הסרה",
+    answerImageAlt: "תמונת התשובה הנכונה",
+    answerImageFailed: "העלאת התמונה נכשלה. נסו שוב.",
+    diagramFailed: "ה-AI שרטט תרשים, אך לא ניתן היה להמיר אותו לתמונה. ניתן להעלות תמונה ידנית.",
   },
   gradingTemplates: {
     selectPlaceholder: "בחר תבנית…",

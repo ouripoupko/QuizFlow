@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
     // ── 5. Fetch question (+ part) + full answer sequence ────────────────────
     const { data: question, error: qErr } = await supabase
       .from("questions")
-      .select("prompt, correct_answer, grading_instructions, allow_answer_image")
+      .select("prompt, correct_answer, grading_instructions, allow_answer_image, correct_answer_image_path")
       .eq("id", input.question_id)
       .single();
 
@@ -175,11 +175,12 @@ Deno.serve(async (req: Request) => {
     let part: GradingPart | null = null;
     let correctAnswer: string | null = question.correct_answer ?? null;
     let allowAnswerImage: boolean = question.allow_answer_image ?? false;
+    let answerKeyImagePath: string | null = question.correct_answer_image_path ?? null;
 
     if (input.part_id) {
       const { data: parts } = await supabase
         .from("question_parts")
-        .select("id, position, prompt, correct_answer, allow_answer_image")
+        .select("id, position, prompt, correct_answer, allow_answer_image, correct_answer_image_path")
         .eq("question_id", input.question_id)
         .order("position", { ascending: true });
       const partList = (parts ?? []) as {
@@ -188,6 +189,7 @@ Deno.serve(async (req: Request) => {
         prompt: string;
         correct_answer: string | null;
         allow_answer_image: boolean;
+        correct_answer_image_path: string | null;
       }[];
       const current = partList.find((p) => p.id === input.part_id);
       if (!current) return err(404, "Part not found");
@@ -225,7 +227,16 @@ Deno.serve(async (req: Request) => {
       };
       correctAnswer = current.correct_answer ?? null;
       allowAnswerImage = current.allow_answer_image ?? false;
+      answerKeyImagePath = current.correct_answer_image_path ?? null;
     }
+
+    // The teacher's answer image, if any — only on questions/parts where
+    // students may answer with an image (the editor ties the two together).
+    // A missing file just means no image: it's a reference for the AI, not
+    // something the request depends on.
+    const answerKeyImage = answerKeyImagePath && allowAnswerImage
+      ? await loadStorageImageBlock(supabase, "answer-key-images", answerKeyImagePath)
+      : null;
 
     // The attached image, if any: only where the teacher allowed one, and
     // only from this participant's own folder (the service role could read
@@ -275,6 +286,7 @@ Deno.serve(async (req: Request) => {
         answerSequence,
         images,
         studentImage,
+        answerKeyImage,
         part,
         language: input.language,
         flowMode: quiz.flow_mode as "infinite_attempts" | "single_attempt",

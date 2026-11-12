@@ -184,6 +184,12 @@ export const ar: Strings = {
     deletePartConfirm: "حذف البند؟ ستُحذف إجابات الطلاب على هذا البند عند الحفظ.",
     partsCount: "بنود",
     allowAnswerImage: "السماح للطالب بإرفاق صورة بالإجابة",
+    addAnswerImage: "🖼 إضافة صورة للإجابة (رفع أو لصق)",
+    replaceAnswerImage: "استبدال",
+    removeAnswerImage: "إزالة",
+    answerImageAlt: "صورة الإجابة الصحيحة",
+    answerImageFailed: "فشل رفع الصورة. حاولوا مرة أخرى.",
+    diagramFailed: "رسم الذكاء الاصطناعي مخططًا، لكن تعذّر تحويله إلى صورة. يمكنكم رفع صورة بأنفسكم.",
   },
   gradingTemplates: {
     selectPlaceholder: "اختر قالبًا…",

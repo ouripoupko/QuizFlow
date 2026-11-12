@@ -69,6 +69,8 @@ export interface Question {
   grading_instructions: string;
   /** The teacher lets students attach one image to their answer (ignored once the question has parts). */
   allow_answer_image: boolean;
+  /** The correct answer's image (answer-key-images bucket); null if none. Ignored once the question has parts. */
+  correct_answer_image_path: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +89,8 @@ export interface QuestionPart {
   correct_answer: string | null;
   /** The teacher lets students attach one image to their answer to this part. */
   allow_answer_image: boolean;
+  /** This part's correct-answer image (answer-key-images bucket); null if none. */
+  correct_answer_image_path: string | null;
   created_at: string;
   updated_at: string;
 }

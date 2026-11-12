@@ -182,6 +182,12 @@ export const en: Strings = {
     deletePartConfirm: "Delete this part? Student answers to it will be deleted when you save.",
     partsCount: "parts",
     allowAnswerImage: "Allow the student to attach an image to the answer",
+    addAnswerImage: "🖼 Add an image to the answer (upload or paste)",
+    replaceAnswerImage: "Replace",
+    removeAnswerImage: "Remove",
+    answerImageAlt: "Correct answer image",
+    answerImageFailed: "The image upload failed. Please try again.",
+    diagramFailed: "The AI drew a diagram, but it couldn't be turned into an image. You can upload one yourself.",
   },
   gradingTemplates: {
     selectPlaceholder: "Choose a template…",
