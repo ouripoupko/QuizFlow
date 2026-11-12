@@ -95,21 +95,22 @@ export function QuizEditorPage() {
       const nextStatus = quiz?.status === "published" ? "draft" : "published";
 
       if (nextStatus === "draft") {
+        // Several lessons may be running in parallel — all of them end.
         const { data: active } = await supabase
           .from("quiz_sessions")
           .select("id")
           .eq("quiz_id", quizId!)
-          .eq("status", "active")
-          .maybeSingle();
+          .eq("status", "active");
 
-        if (active) {
+        if (active && active.length > 0) {
           if (!window.confirm(t.quizEditor.unpublishActiveSessionConfirm)) return;
           const { error: endErr } = await supabase
             .from("quiz_sessions")
             .update({ status: "ended", ended_at: new Date().toISOString() })
-            .eq("id", active.id);
+            .in("id", active.map((s) => s.id));
           if (endErr) throw endErr;
-          void qc.invalidateQueries({ queryKey: ["active-session", quizId] });
+          void qc.invalidateQueries({ queryKey: ["active-sessions", quizId] });
+          void qc.invalidateQueries({ queryKey: ["session-history", quizId] });
         }
       }
 

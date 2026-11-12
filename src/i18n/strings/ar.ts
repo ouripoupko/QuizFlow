@@ -143,7 +143,7 @@ export const ar: Strings = {
       "لدى بعض الطلاب إجابات بالفعل. تغيير جوهري؟ فكّروا في نسخ الاختبار.",
     lockedHint: "الاختبار منشور ولذلك هو مقفل للتحرير. ألغوا النشر لتحريره.",
     unpublishActiveSessionConfirm:
-      "يوجد درس نشط لهذا الاختبار. إنهاء الدرس وإلغاء النشر؟",
+      "توجد دروس نشطة لهذا الاختبار. إنهاؤها جميعًا وإلغاء النشر؟",
     addQuestion: "+ إضافة سؤال",
     noQuestions: "لا توجد أسئلة بعد.",
     questionN: "السؤال",
@@ -231,6 +231,11 @@ export const ar: Strings = {
   },
   session: {
     startSession: "بدء الدرس",
+    startAnotherSession: "بدء درس إضافي",
+    nameLabel: "اسم الدرس",
+    namePlaceholder: "اسم الدرس (اختياري)، مثلًا: الصف العاشر 2",
+    showQr: "رمز QR",
+    hideQr: "إخفاء QR",
     startDisabledHint: "يجب نشر الاختبار قبل بدء الدرس.",
     starting: "جارٍ البدء…",
     endSession: "إنهاء الدرس",
@@ -246,7 +251,6 @@ export const ar: Strings = {
     historyParticipants: "طلاب",
     relaunch: "إعادة التشغيل",
     relaunching: "جارٍ إعادة التشغيل…",
-    relaunchBlocked: "يوجد درس نشط لهذا الاختبار بالفعل. أنهوه قبل إعادة تشغيل درس سابق.",
     relaunchDisabledHint: "الاختبار غير منشور. يجب نشره لإعادة تشغيل درس سابق.",
     staleBadge: "تم تحديث الاختبار منذ هذا الدرس",
     relaunchDisabledStaleHint: "لا يمكن إعادة تشغيل هذا الدرس — تغيّر الاختبار منذ أن جرى.",

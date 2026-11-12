@@ -96,6 +96,8 @@ export function ControlBoardPage() {
 
   const [quizId, setQuizId] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState("");
+  // Tells parallel lessons of the same quiz apart (e.g. the class name).
+  const [sessionName, setSessionName] = useState<string | null>(null);
   const [flowMode, setFlowMode] = useState<FlowMode>("infinite_attempts");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [partsByQuestion, setPartsByQuestion] = useState<PartsByQuestion>({});
@@ -130,12 +132,13 @@ export function ControlBoardPage() {
       // Session
       const { data: session } = await supabase
         .from("quiz_sessions")
-        .select("quiz_id, status")
+        .select("quiz_id, status, name")
         .eq("id", sessionId)
         .single();
 
       if (!session) { setLoading(false); return; }
       setQuizId(session.quiz_id);
+      setSessionName(session.name ?? null);
 
       // Quiz
       const { data: quiz } = await supabase
@@ -468,7 +471,10 @@ export function ControlBoardPage() {
         >
           {t.controlBoard.backToEditor}
         </Link>
-        <h1 className={styles.title}>{quizTitle}</h1>
+        <h1 className={styles.title}>
+          {quizTitle}
+          {sessionName && <span className={styles.sessionName}> · {sessionName}</span>}
+        </h1>
         <LanguageSwitcher />
         <div className={styles.stats}>
           {waitingCount > 0 && (

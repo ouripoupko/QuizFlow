@@ -128,6 +128,8 @@ export interface QuizSession {
   quiz_id: string;
   host_id: string;
   join_token: string;
+  /** Optional teacher-set name (e.g. the class), to tell parallel lessons apart. */
+  name: string | null;
   status: SessionStatus;
   created_at: string;
   ended_at: string | null;

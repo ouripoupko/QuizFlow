@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
-import { t } from "@/i18n";
+import { formatDateTime, t } from "@/i18n";
 import type { QuizSession } from "@/types/domain";
 import styles from "./SessionHistory.module.scss";
 
@@ -10,10 +10,6 @@ interface Props {
   quizPublished: boolean;
   /** Quiz's `content_updated_at` — a session created before this is stale. */
   quizContentUpdatedAt: string;
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });
 }
 
 export function SessionHistory({ quizId, quizPublished, quizContentUpdatedAt }: Props) {
@@ -84,19 +80,10 @@ function SessionHistoryRow({
 
   // Relaunching reuses the same session row (same join link, same roster,
   // same progress) rather than starting fresh — resuming a lesson that was
-  // ended by mistake, or picking a paused one back up. Blocked if another
-  // session for this quiz is already active, since only one join link
-  // should ever be "the" live one at a time.
+  // ended by mistake, or picking a paused one back up. Other lessons of the
+  // quiz may be running at the same time (parallel classes).
   const relaunch = useMutation({
     mutationFn: async () => {
-      const { data: active } = await supabase
-        .from("quiz_sessions")
-        .select("id")
-        .eq("quiz_id", quizId)
-        .eq("status", "active")
-        .maybeSingle();
-      if (active) throw new Error("already_active");
-
       const { error } = await supabase
         .from("quiz_sessions")
         .update({ status: "active", ended_at: null })
@@ -104,7 +91,7 @@ function SessionHistoryRow({
       if (error) throw error;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["active-session", quizId] });
+      void qc.invalidateQueries({ queryKey: ["active-sessions", quizId] });
       void qc.invalidateQueries({ queryKey: ["session-history", quizId] });
     },
   });
@@ -130,6 +117,7 @@ function SessionHistoryRow({
   return (
     <li className={styles.row}>
       <div className={styles.info}>
+        {session.name && <span className={styles.name}>{session.name}</span>}
         <span className={styles.dates}>
           {t.session.historyStarted} {formatDateTime(session.created_at)}
           {session.ended_at && (
@@ -163,7 +151,7 @@ function SessionHistoryRow({
           {remove.isPending ? t.session.deletingSession : t.session.deleteSession}
         </button>
       </div>
-      {relaunch.isError && <p className={styles.error}>{t.session.relaunchBlocked}</p>}
+      {relaunch.isError && <p className={styles.error}>{t.common.error}</p>}
     </li>
   );
 }

@@ -141,7 +141,7 @@ export const en: Strings = {
       "Some students already have answers. A substantial change? Consider cloning the quiz.",
     lockedHint: "This quiz is published, so it's locked for editing. Unpublish it to edit.",
     unpublishActiveSessionConfirm:
-      "This quiz has an active lesson. End the lesson and unpublish?",
+      "This quiz has active lessons. End them all and unpublish?",
     addQuestion: "+ Add question",
     noQuestions: "No questions yet.",
     questionN: "Question",
@@ -229,6 +229,11 @@ export const en: Strings = {
   },
   session: {
     startSession: "Start lesson",
+    startAnotherSession: "Start another lesson",
+    nameLabel: "Lesson name",
+    namePlaceholder: "Lesson name (optional), e.g. Class 10B",
+    showQr: "QR code",
+    hideQr: "Hide QR",
     startDisabledHint: "Publish the quiz before starting a lesson.",
     starting: "Starting…",
     endSession: "End lesson",
@@ -244,7 +249,6 @@ export const en: Strings = {
     historyParticipants: "students",
     relaunch: "Relaunch",
     relaunching: "Relaunching…",
-    relaunchBlocked: "This quiz already has an active lesson. End it before relaunching a past one.",
     relaunchDisabledHint: "The quiz isn't published. Publish it to relaunch a past lesson.",
     staleBadge: "The quiz changed since this lesson",
     relaunchDisabledStaleHint: "This lesson can't be relaunched — the quiz changed since it ran.",

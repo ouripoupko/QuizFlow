@@ -84,3 +84,11 @@ export function withLang(url: string): string {
 export function format(template: string, values: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (m, key: string) => values[key] ?? m);
 }
+
+// Date/number conventions per UI language (Israel-region formats).
+const INTL_LOCALE: Record<Locale, string> = { he: "he-IL", en: "en-GB", ar: "ar-IL" };
+
+/** Short date + time in the active language, e.g. for lesson start times. */
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(INTL_LOCALE[activeLocale], { dateStyle: "short", timeStyle: "short" });
+}

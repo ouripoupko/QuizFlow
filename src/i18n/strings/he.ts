@@ -146,7 +146,7 @@ export const he = {
       "לחלק מהתלמידים יש כבר תשובות. שינוי מהותי? שקול לשכפל את השאלון.",
     lockedHint: "השאלון פורסם ולכן נעול לעריכה. בטלו פרסום כדי לערוך אותו.",
     unpublishActiveSessionConfirm:
-      "יש שיעור פעיל לשאלון זה. לסיים את השיעור ולבטל את הפרסום?",
+      "יש שיעורים פעילים לשאלון זה. לסיים את כולם ולבטל את הפרסום?",
     addQuestion: "+ הוסף שאלה",
     noQuestions: "אין שאלות עדיין.",
     questionN: "שאלה",
@@ -236,6 +236,11 @@ export const he = {
   },
   session: {
     startSession: "התחל שיעור",
+    startAnotherSession: "התחל שיעור נוסף",
+    nameLabel: "שם השיעור",
+    namePlaceholder: "שם השיעור (לא חובה), למשל: כיתה י'2",
+    showQr: "קוד QR",
+    hideQr: "הסתר QR",
     startDisabledHint: "יש לפרסם את השאלון לפני התחלת שיעור.",
     starting: "מתחיל…",
     endSession: "סיים שיעור",
@@ -251,7 +256,6 @@ export const he = {
     historyParticipants: "תלמידים",
     relaunch: "הפעל מחדש",
     relaunching: "מפעיל מחדש…",
-    relaunchBlocked: "יש כבר שיעור פעיל לשאלון זה. סיימו אותו לפני הפעלה מחדש של שיעור קודם.",
     relaunchDisabledHint: "השאלון אינו מפורסם. יש לפרסם אותו כדי להפעיל שיעור קודם מחדש.",
     staleBadge: "השאלון עודכן מאז שיעור זה",
     relaunchDisabledStaleHint: "לא ניתן להפעיל שיעור זה מחדש — השאלון השתנה מאז שהשיעור רץ.",
